@@ -1,0 +1,67 @@
+# ==========================================
+# Cortex Multi-Agent Platform - Git Ignore
+# ==========================================
+
+# Dependencies
+**/node_modules/
+node_modules/
+.pnp
+.pnp.js
+
+# Environment Variables & Secrets (Keep .env.example)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# Production Build Outputs
+**/dist/
+dist/
+**/build/
+build/
+out/
+.next/
+
+# Logs & Diagnostics
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Docker Volumes & Databases
+mongo_data/
+redis_data/
+qdrant_data/
+*.sqlite
+*.db
+
+# Temporary & Test Files
+.cache/
+.parcel-cache/
+coverage/
+.nyc_output/
+*.tmp
+*.temp
+
+# OS System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo

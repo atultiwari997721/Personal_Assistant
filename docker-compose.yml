@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------
+  # 1. API Gateway (Reverse Proxy, JWT Auth, Credits, Rate Limiting)
+  # ---------------------------------------------------------
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: cortex_api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_cortex_ai_2026_dev}
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - PAYMENT_SERVICE_URL=http://payment-service:8002
+      - AGENT_SERVICE_URL=http://agent-service:8003
+    depends_on:
+      - redis
+      - auth-service
+      - payment-service
+      - agent-service
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # 2. Auth Service (Firebase Google Auth, JWT, Redis Session)
+  # ---------------------------------------------------------
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: cortex_auth_service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - MONGO_URI=mongodb://mongo:27017/cortex_ai
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_cortex_ai_2026_dev}
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # 3. Payment Service (Razorpay Orders, Webhooks, Credit Ledger)
+  # ---------------------------------------------------------
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    container_name: cortex_payment_service
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-rzp_test_YourRazorpayKeyId}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-YourRazorpayKeySecret}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-YourRazorpayWebhookSecret}
+    depends_on:
+      - auth-service
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # 4. Multi-Agent Orchestrator Service (LangGraph, 6 Agents, Qdrant)
+  # ---------------------------------------------------------
+  agent-service:
+    build:
+      context: ./services/agent-service
+      dockerfile: Dockerfile
+    container_name: cortex_agent_service
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+      - QDRANT_URL=http://qdrant:6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+    depends_on:
+      - qdrant
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # 5. Frontend Client (React, Redux, Tailwind, Code Sandbox)
+  # ---------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: cortex_client
+    ports:
+      - "3894:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Infrastructure: Redis Cache & Session Store
+  # ---------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: cortex_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Infrastructure: Qdrant Vector Database
+  # ---------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: cortex_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Infrastructure: MongoDB
+  # ---------------------------------------------------------
+  mongo:
+    image: mongo:7.0
+    container_name: cortex_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - cortex-net
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  redis_data:
+  qdrant_data:
+
+networks:
+  cortex-net:
+    driver: bridge

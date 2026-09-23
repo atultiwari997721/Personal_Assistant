@@ -1,0 +1,32 @@
+{
+  "name": "cortex-ai-platform",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Production-Ready Multi-Agent AI SaaS Platform (MERN, Microservices, LangGraph, Qdrant, Redis, Docker, AWS)",
+  "scripts": {
+    "start": "node start-dev.js",
+    "dev": "node start-dev.js",
+    "install:all": "npm install && cd api-gateway && npm install && cd ../services/auth-service && npm install && cd ../payment-service && npm install && cd ../agent-service && npm install && cd ../../client && npm install",
+    "test": "cd services/agent-service && node test-agents.js && cd ../auth-service && node test-auth-payments.js",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "dev:gateway": "cd api-gateway && npm run dev",
+    "dev:auth": "cd services/auth-service && npm run dev",
+    "dev:payment": "cd services/payment-service && npm run dev",
+    "dev:agent": "cd services/agent-service && npm run dev",
+    "dev:client": "cd client && npm run dev"
+  },
+  "keywords": [
+    "multi-agent",
+    "ai-agent",
+    "langgraph",
+    "qdrant",
+    "redis",
+    "microservices",
+    "mern",
+    "razorpay",
+    "saas"
+  ],
+  "author": "Cortex Engineering",
+  "license": "MIT"
+}

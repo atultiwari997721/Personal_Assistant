@@ -16,12 +16,12 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 
   if (!inline && match) {
     return (
-      <div className="relative my-4 rounded-xl overflow-hidden border border-dark-700 bg-dark-950 font-mono text-xs">
-        <div className="flex items-center justify-between px-4 py-1.5 bg-dark-900 border-b border-dark-800 text-slate-400">
+      <div className="relative my-4 rounded-xl overflow-hidden border border-slate-700 dark:border-dark-700 bg-slate-950 dark:bg-dark-950 font-mono text-xs shadow-md">
+        <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-dark-900 border-b border-slate-800 dark:border-dark-800 text-slate-400">
           <span className="font-semibold text-sky-400 uppercase tracking-wide text-[11px]">{match[1]}</span>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition py-0.5 px-2 rounded hover:bg-dark-800"
+            className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition py-0.5 px-2 rounded hover:bg-slate-800 dark:hover:bg-dark-800"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Copied' : 'Copy Code'}</span>
@@ -35,7 +35,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   }
 
   return (
-    <code className="bg-dark-800 px-1.5 py-0.5 rounded text-sky-300 font-mono text-xs" {...props}>
+    <code className="bg-slate-200/80 dark:bg-dark-800 text-sky-600 dark:text-sky-300 px-1.5 py-0.5 rounded font-mono text-xs" {...props}>
       {children}
     </code>
   );
@@ -77,7 +77,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
                 className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-xs shadow-md ${
                   isUser
                     ? 'bg-gradient-to-tr from-sky-500 to-indigo-600 text-white'
-                    : 'bg-dark-800 border border-dark-700 text-sky-400'
+                    : 'bg-slate-100 dark:bg-dark-800 border border-slate-200 dark:border-dark-700 text-sky-600 dark:text-sky-400'
                 }`}
               >
                 {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -86,35 +86,35 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
               <div
                 className={`flex-1 rounded-2xl px-5 py-4 border ${
                   isUser
-                    ? 'bg-sky-600/10 border-sky-500/20 text-slate-100 max-w-2xl'
-                    : 'bg-dark-900/90 border-dark-800 text-slate-200 shadow-sm'
+                    ? 'bg-sky-500/10 border-sky-500/30 text-slate-800 dark:text-slate-100 max-w-2xl'
+                    : 'bg-white dark:bg-dark-900/90 border-slate-200 dark:border-dark-800 text-slate-800 dark:text-slate-200 shadow-sm'
                 }`}
               >
-                <div className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center justify-between">
                   <span>{isUser ? 'You' : `Agent (${msg.agent || 'Intelligence'})`}</span>
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
 
-                <div className="prose prose-invert prose-sky max-w-none text-sm leading-relaxed">
+                <div className="prose dark:prose-invert prose-sky max-w-none text-sm leading-relaxed">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
                       code: CodeBlock,
                       p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                      h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-lg font-bold text-sky-300 mt-3 mb-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-base font-semibold text-slate-200 mt-2 mb-1">{children}</h3>,
+                      h1: ({ children }) => <h1 className="text-xl font-bold text-slate-900 dark:text-white mt-4 mb-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-lg font-bold text-sky-600 dark:text-sky-300 mt-3 mb-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mt-2 mb-1">{children}</h3>,
                       ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
                       table: ({ children }) => (
                         <div className="overflow-x-auto my-3">
-                          <table className="w-full text-left text-xs border border-dark-700 rounded-lg">{children}</table>
+                          <table className="w-full text-left text-xs border border-slate-200 dark:border-dark-700 rounded-lg">{children}</table>
                         </div>
                       ),
-                      th: ({ children }) => <th className="bg-dark-800 p-2 font-semibold text-sky-300 border-b border-dark-700">{children}</th>,
-                      td: ({ children }) => <td className="p-2 border-b border-dark-800/80">{children}</td>,
+                      th: ({ children }) => <th className="bg-slate-100 dark:bg-dark-800 p-2 font-semibold text-sky-700 dark:text-sky-300 border-b border-slate-200 dark:border-dark-700">{children}</th>,
+                      td: ({ children }) => <td className="p-2 border-b border-slate-200 dark:border-dark-800/80">{children}</td>,
                     }}
                   >
                     {msg.content}
@@ -127,10 +127,10 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
 
         {isLoading && (
           <div className="flex items-start gap-3.5 max-w-4xl mx-auto">
-            <div className="w-8 h-8 rounded-xl bg-dark-800 border border-dark-700 flex items-center justify-center text-sky-400">
-              <Sparkles className="w-4 h-4 animate-spin text-sky-400" />
+            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dark-800 border border-slate-200 dark:border-dark-700 flex items-center justify-center text-sky-500 dark:text-sky-400">
+              <Sparkles className="w-4 h-4 animate-spin" />
             </div>
-            <div className="bg-dark-900 border border-dark-800 rounded-2xl px-5 py-3 text-xs text-slate-400 flex items-center gap-2">
+            <div className="bg-white dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-2xl px-5 py-3 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
               <span>LangGraph Orchestrator processing query & evaluating node state...</span>
             </div>
@@ -140,7 +140,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
       </div>
 
       {/* Input Form */}
-      <div className="p-4 border-t border-dark-800 bg-dark-900/60 backdrop-blur-md">
+      <div className="p-4 border-t border-slate-200 dark:border-dark-800 bg-white/80 dark:bg-dark-900/60 backdrop-blur-md">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-center">
           <textarea
             value={input}
@@ -153,7 +153,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
             }}
             placeholder="Type your message or instruction (Press Enter to send, Shift+Enter for newline)..."
             rows={1}
-            className="w-full bg-dark-850 border border-dark-700 focus:border-sky-500 rounded-2xl py-3.5 pl-4 pr-14 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none shadow-inner"
+            className="w-full bg-slate-100 dark:bg-dark-850 border border-slate-300 dark:border-dark-700 focus:border-sky-500 rounded-2xl py-3.5 pl-4 pr-14 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none shadow-inner transition-colors"
           />
           <button
             type="submit"

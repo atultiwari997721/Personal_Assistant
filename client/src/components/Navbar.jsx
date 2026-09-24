@@ -8,14 +8,18 @@ import {
   ExternalLink,
   ShieldCheck,
   User as UserIcon,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { setCreditModalOpen } from '../store/authSlice.js';
 import { toggleSidebar } from '../store/agentSlice.js';
+import { toggleTheme } from '../store/themeSlice.js';
 
 export const Navbar = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { activeAgent } = useSelector((state) => state.agent);
+  const { theme } = useSelector((state) => state.theme);
 
   const getAgentLabel = () => {
     switch (activeAgent) {
@@ -29,11 +33,11 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="h-16 border-b border-dark-800 bg-dark-900/90 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
+    <header className="h-16 border-b border-slate-200 dark:border-dark-800 bg-white/90 dark:bg-dark-900/90 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0 transition-colors">
       <div className="flex items-center gap-3">
         <button
           onClick={() => dispatch(toggleSidebar())}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800 transition"
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-dark-800 transition"
           title="Toggle Sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -46,30 +50,44 @@ export const Navbar = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold tracking-tight text-lg cortex-gradient-text">CORTEX</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                 Multi-Agent SaaS
               </span>
             </div>
           </div>
         </div>
 
-        <div className="hidden md:flex items-center ml-4 pl-4 border-l border-dark-800">
-          <div className="flex items-center gap-2 text-xs text-slate-400 bg-dark-850 px-3 py-1.5 rounded-full border border-dark-700/60">
+        <div className="hidden md:flex items-center ml-4 pl-4 border-l border-slate-200 dark:border-dark-800">
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-dark-850 px-3 py-1.5 rounded-full border border-slate-200 dark:border-dark-700/60 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-medium">Mode: {getAgentLabel()}</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Mode: {getAgentLabel()}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Theme Toggle Button */}
+        <button
+          onClick={() => dispatch(toggleTheme())}
+          className="p-2 rounded-xl border border-slate-200 dark:border-dark-700 bg-slate-100 hover:bg-slate-200 dark:bg-dark-850 dark:hover:bg-dark-800 text-slate-600 dark:text-slate-300 shadow-sm transition flex items-center justify-center"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4 text-amber-400 animate-pulse" />
+          ) : (
+            <Moon className="w-4 h-4 text-indigo-600" />
+          )}
+        </button>
+
         {/* Credit Badge & Recharge Button */}
-        <div className="flex items-center bg-dark-850 border border-dark-700 rounded-full p-1 pl-3 gap-2.5 shadow-inner">
+        <div className="flex items-center bg-slate-100 dark:bg-dark-850 border border-slate-200 dark:border-dark-700 rounded-full p-1 pl-3 gap-2.5 shadow-sm">
           <div className="flex items-center gap-1.5">
-            <Coins className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-semibold text-slate-200">
+            <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
               {user?.credits ?? 0}
             </span>
-            <span className="text-[11px] text-slate-400">credits</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">credits</span>
           </div>
 
           <button
@@ -87,16 +105,16 @@ export const Navbar = () => {
             <img
               src={user.avatarUrl}
               alt={user.name}
-              className="w-8 h-8 rounded-full border border-dark-700 bg-dark-800"
+              className="w-8 h-8 rounded-full border border-slate-200 dark:border-dark-700 bg-slate-100 dark:bg-dark-800"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-dark-800 border border-dark-700 flex items-center justify-center text-slate-300">
+            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-dark-800 border border-slate-200 dark:border-dark-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
               <UserIcon className="w-4 h-4" />
             </div>
           )}
           <div className="hidden lg:block text-left">
-            <p className="text-xs font-semibold text-slate-200 truncate max-w-[120px]">{user?.name || 'Developer'}</p>
-            <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{user?.name || 'Developer'}</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
               <ShieldCheck className="w-3 h-3" /> Pro Tier
             </p>
           </div>

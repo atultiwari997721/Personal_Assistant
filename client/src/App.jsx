@@ -170,7 +170,7 @@ export const App = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-dark-950 text-slate-100 font-sans">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-dark-950 text-slate-800 dark:text-slate-100 font-sans transition-colors">
       {/* Top Navigation */}
       <Navbar />
 
@@ -180,12 +180,12 @@ export const App = () => {
         <Sidebar />
 
         {/* Dynamic Workspace Container */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden bg-dark-900/40 relative">
+        <main className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100/60 dark:bg-dark-900/40 relative">
           {/* Quick Agent Mode Pill Selector */}
-          <div className="px-4 py-2.5 border-b border-dark-800 bg-dark-950/60 flex items-center justify-between z-10">
+          <div className="px-4 py-2.5 border-b border-slate-200 dark:border-dark-800 bg-white/70 dark:bg-dark-950/60 flex items-center justify-between z-10">
             <AgentSelector />
-            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400"></span>
               <span>1 credit per query</span>
             </div>
           </div>

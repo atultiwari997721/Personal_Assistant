@@ -1,71 +1,111 @@
 import { invokeLLM } from '../config/llm.js';
 import { performWebSearch } from '../tools/webSearch.js';
+import {
+  trySolveConversational,
+  trySolveMath,
+  trySolveCoding,
+  trySolveCreative,
+  trySolveComparison,
+  solveFactualReasoning,
+} from './reasoningEngine.js';
 
-export const CHAT_SYSTEM_PROMPT =
-  "You are a helpful, intelligent AI assistant. Maintain conversation history, analyze user context, and deliver structured, clear responses using markdown formatting.";
+export const CHAT_SYSTEM_PROMPT = `You are Cortex AI, a brilliant, highly intelligent, and deeply thoughtful Principal AI Systems Architect and Polymath.
+You possess profound expertise across computer science, mathematical reasoning, software engineering, science, business, and creative writing.
+When answering questions:
+1. Think step-by-step before answering.
+2. Provide direct, highly accurate, and comprehensive explanations with real substance—never superficial generic placeholders.
+3. When code is requested, provide complete, working, well-commented code blocks with language tags.
+4. When math is requested, show clear arithmetic steps and formulas.
+5. Format your answers elegantly using GitHub-flavored Markdown.`;
 
 export const runChatAgent = async (messages, userPrompt) => {
+  // 1. Attempt Frontier / Cloud LLM execution first
   try {
     const content = await invokeLLM({
       systemPrompt: CHAT_SYSTEM_PROMPT,
       userPrompt,
       messages,
-      temperature: 0.7,
+      temperature: 0.6,
     });
 
-    if (content && content.length > 20) {
+    if (content && content.length > 20 && !content.includes('Internal Server Error')) {
       return {
         agent: 'chat',
         content,
-        metadata: { timestamp: new Date() },
+        metadata: { timestamp: new Date(), engine: 'frontier-llm' },
       };
     }
   } catch (err) {
-    console.warn('[Chat Agent] Live LLM notice, using analytical synthesis:', err.message);
+    console.warn('[Chat Agent] Cloud LLM note, engaging Cognitive Reasoning Brain:', err.message);
   }
 
-  // Deep dynamic response answering the user's specific prompt
-  const cleanTopic = userPrompt
-    .replace(/\b(what|is|how|to|can|you|tell|me|explain|about|please|the|a|an)\b/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim() || userPrompt;
+  // 2. High-Intelligence Local Cognitive Reasoning Engine
+  // A. Check for Conversational, Greetings & Identity
+  const convSolution = trySolveConversational(userPrompt);
+  if (convSolution) {
+    return {
+      agent: 'chat',
+      content: convSolution,
+      metadata: { timestamp: new Date(), engine: 'cognitive-conversational' },
+    };
+  }
 
-  let webSnippet = '';
+  // B. Check for Mathematical Expressions, Percentages, and Unit Conversions
+  const mathSolution = trySolveMath(userPrompt);
+  if (mathSolution) {
+    return {
+      agent: 'chat',
+      content: mathSolution,
+      metadata: { timestamp: new Date(), engine: 'cognitive-math' },
+    };
+  }
+
+  // B. Check for Coding, Algorithms, and Technical Solutions
+  const codeSolution = trySolveCoding(userPrompt);
+  if (codeSolution) {
+    return {
+      agent: 'chat',
+      content: codeSolution,
+      metadata: { timestamp: new Date(), engine: 'cognitive-code' },
+    };
+  }
+
+  // C. Check for Creative Requests (Poems, Jokes, Stories)
+  const creativeSolution = trySolveCreative(userPrompt);
+  if (creativeSolution) {
+    return {
+      agent: 'chat',
+      content: creativeSolution,
+      metadata: { timestamp: new Date(), engine: 'cognitive-creative' },
+    };
+  }
+
+  // D. Check for Comparative Analysis ("X vs Y")
+  const comparisonSolution = trySolveComparison(userPrompt);
+  if (comparisonSolution) {
+    return {
+      agent: 'chat',
+      content: comparisonSolution,
+      metadata: { timestamp: new Date(), engine: 'cognitive-comparison' },
+    };
+  }
+
+  // E. Factual, Scientific, Historical, and Domain Knowledge
+  // Query multi-source real-time web knowledge (Wikipedia + HackerNews + DuckDuckGo)
+  let searchHits = [];
   try {
-    const searchRes = await performWebSearch(cleanTopic);
-    if (searchRes.results && searchRes.results.length > 0) {
-      webSnippet = searchRes.results[0].content;
+    const webData = await performWebSearch(userPrompt);
+    if (webData && webData.results) {
+      searchHits = webData.results;
     }
-  } catch (e) {}
+  } catch (searchErr) {
+    console.warn('[Chat Agent] Search fallback note:', searchErr.message);
+  }
 
-  const content = `### Analysis & Insights: ${userPrompt}
-
-Thank you for your question. Here is a clear, structured breakdown regarding **"${userPrompt}"**:
-
----
-
-#### 1. Core Overview & Fundamental Principles
-${webSnippet ? `> **Verified Context:** ${webSnippet}\n\n` : ''}**Key Concept:** When addressing **${cleanTopic}**, the primary focus is understanding the underlying mechanics, operational constraints, and proven best practices. Whether evaluating architectural trade-offs, practical implementations, or domain strategies, a methodical approach ensures reliable outcomes.
-
----
-
-#### 2. Key Insights & Critical Considerations
-1. **Structural Clarity**: Ensure clear boundaries and decoupling across components or stages of execution.
-2. **Efficiency & Performance**: Optimize for low cognitive or computational overhead while maximizing precision and reliability.
-3. **Continuous Verification**: Implement feedback loops and measurable benchmarks to monitor progress in real time.
-
----
-
-#### 3. Actionable Next Steps
-- **Live Code Execution**: If you'd like an interactive code demo or functional component for this concept, switch to the **Code & Sandbox** agent in the sidebar.
-- **Presentation Deck**: To generate a structured slide deck for stakeholders on this topic, select the **PPT Presentations** agent.
-- **Formal PDF Report**: To compile a printable, comprehensive executive document, select the **PDF Documents** agent.
-
-*Feel free to ask follow-up questions, drill deeper into specifics, or request practical implementation details!*`;
-
+  const factualAnswer = solveFactualReasoning(userPrompt, searchHits);
   return {
     agent: 'chat',
-    content,
-    metadata: { timestamp: new Date() },
+    content: factualAnswer,
+    metadata: { timestamp: new Date(), engine: 'cognitive-knowledge' },
   };
 };

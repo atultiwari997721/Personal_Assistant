@@ -6,7 +6,7 @@ const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
 export const extractCoreKeywords = (query = '') => {
   return query
-    .replace(/\b(find|search|lookup|tell|me|about|what|is|are|the|latest|news|on|recent|updates|update|show|information|info|for|how|to|top|best|explain)\b/gi, ' ')
+    .replace(/\b(find|search|lookup|tell|me|about|what|is|are|was|were|how|does|do|did|can|could|will|would|should|the|latest|news|on|recent|updates|update|show|information|info|for|to|top|best|explain|describe|meaning|definition|work|works|in|detail|please)\b/gi, ' ')
     .replace(/[^\w\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -74,30 +74,7 @@ export const performWebSearch = async (query) => {
     candidateTerms.push(keyWords[0]);
   }
 
-  // 1. Query Hacker News Real-Time Search API
-  for (const term of candidateTerms) {
-    if (results.length >= 4) break;
-    try {
-      const hnUrl = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(term)}&tags=story&hitsPerPage=4`;
-      const hnRes = await axios.get(hnUrl, { timeout: 5000 });
-      const hits = hnRes.data.hits || [];
-
-      hits.forEach((hit) => {
-        if (hit.title && !results.some((r) => r.title === hit.title)) {
-          const itemUrl = hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`;
-          const dateStr = hit.created_at ? new Date(hit.created_at).toLocaleDateString() : 'Recent';
-          results.push({
-            title: hit.title,
-            url: itemUrl,
-            content: `Real-time discussion reported on ${dateStr} (${hit.points || 0} upvotes, ${hit.num_comments || 0} comments). Author: ${hit.author || 'community'}. Verified source: ${itemUrl}`,
-            score: 0.92 - (results.length * 0.03),
-          });
-        }
-      });
-    } catch (hnErr) {}
-  }
-
-  // 2. Query Wikipedia OpenSearch & Summaries
+  // 1. Query Wikipedia OpenSearch & Summaries (Authoritative Knowledge & Science)
   for (const term of candidateTerms) {
     if (results.length >= 4) break;
     try {
@@ -122,14 +99,41 @@ export const performWebSearch = async (query) => {
           }
         } catch (sumErr) {}
 
+        if (content.toLowerCase().includes('may refer to')) {
+          continue;
+        }
+
         results.push({
           title: titles[i],
           url: urls[i] || `https://en.wikipedia.org/wiki/${encodeURIComponent(titles[i])}`,
           content: content.slice(0, 450),
-          score: 0.95 - (results.length * 0.04),
+          score: 0.96 - (results.length * 0.04),
         });
       }
     } catch (wikiErr) {}
+  }
+
+  // 2. Query Hacker News Real-Time Search API
+  for (const term of candidateTerms) {
+    if (results.length >= 6) break;
+    try {
+      const hnUrl = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(term)}&tags=story&hitsPerPage=4`;
+      const hnRes = await axios.get(hnUrl, { timeout: 5000 });
+      const hits = hnRes.data.hits || [];
+
+      hits.forEach((hit) => {
+        if (hit.title && !results.some((r) => r.title === hit.title)) {
+          const itemUrl = hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`;
+          const dateStr = hit.created_at ? new Date(hit.created_at).toLocaleDateString() : 'Recent';
+          results.push({
+            title: hit.title,
+            url: itemUrl,
+            content: `Real-time discussion reported on ${dateStr} (${hit.points || 0} upvotes, ${hit.num_comments || 0} comments). Author: ${hit.author || 'community'}. Verified source: ${itemUrl}`,
+            score: 0.90 - (results.length * 0.03),
+          });
+        }
+      });
+    } catch (hnErr) {}
   }
 
   // 3. Query DuckDuckGo Instant Answer API

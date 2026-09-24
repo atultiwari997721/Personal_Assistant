@@ -10,29 +10,75 @@ try {
   dns.setDefaultResultOrder('ipv4first');
 } catch (e) {}
 
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL;
+export const getActiveProvider = () => {
+  if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes('your_openai') && process.env.OPENAI_API_KEY.length > 5) {
+    return {
+      type: 'openai',
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.LLM_MODEL || 'gpt-4o-mini',
+      baseURL: process.env.OPENAI_BASE_URL,
+    };
+  }
+
+  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.length > 5) {
+    return {
+      type: 'groq',
+      apiKey: process.env.GROQ_API_KEY,
+      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      baseURL: 'https://api.groq.com/openai/v1',
+    };
+  }
+
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 5) {
+    return {
+      type: 'gemini',
+      apiKey: process.env.GEMINI_API_KEY,
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    };
+  }
+
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 5) {
+    return {
+      type: 'openrouter',
+      apiKey: process.env.OPENROUTER_API_KEY,
+      model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
+      baseURL: 'https://openrouter.ai/api/v1',
+    };
+  }
+
+  if (process.env.OLLAMA_URL) {
+    return {
+      type: 'ollama',
+      apiKey: 'ollama',
+      model: process.env.OLLAMA_MODEL || 'llama3',
+      baseURL: process.env.OLLAMA_URL.endsWith('/v1') ? process.env.OLLAMA_URL : `${process.env.OLLAMA_URL}/v1`,
+    };
+  }
+
+  return null;
+};
 
 export const hasValidLLMKey = () => {
-  return apiKey && !apiKey.includes('your_openai') && apiKey.length > 5;
+  return getActiveProvider() !== null;
 };
 
 export const getLangChainLLM = (temperature = 0.7) => {
-  if (hasValidLLMKey()) {
-    return new ChatOpenAI({
-      openAIApiKey: apiKey,
-      modelName: process.env.LLM_MODEL || 'gpt-4o-mini',
-      temperature,
-      configuration: baseURL ? { baseURL } : undefined,
-    });
-  }
-  return null;
+  const provider = getActiveProvider();
+  if (!provider) return null;
+
+  return new ChatOpenAI({
+    openAIApiKey: provider.apiKey,
+    modelName: provider.model,
+    temperature,
+    configuration: provider.baseURL ? { baseURL: provider.baseURL } : undefined,
+  });
 };
 
 /**
  * Universal dynamic LLM invocation:
- * 1. Checks user's configured API Key via LangChain (OpenAI / Groq / Ollama / Gemini).
- * 2. If no key, seamlessly routes to high-speed live inference across fallback models (openai -> mistral -> qwen).
+ * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, OpenRouter, Ollama).
+ * 2. If no key, seamlessly attempts live inference via fast online models.
  */
 export const invokeLLM = async ({
   systemPrompt,
@@ -59,47 +105,44 @@ export const invokeLLM = async ({
       const response = await llm.invoke(formatted);
       return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
     } catch (langchainErr) {
-      console.warn('[LLM] LangChain API failed, falling back to live open inference:', langchainErr.message);
+      console.warn('[LLM] LangChain API failed, attempting fast cloud inference:', langchainErr.message);
     }
   }
 
-  // Option 2: Live Real-Time Multi-Model Engine (openai -> mistral -> qwen)
-  const models = ['openai', 'mistral', 'qwen', 'llama'];
+  // Option 2: Live fast inference
   const formattedMessages = [];
   if (systemPrompt) formattedMessages.push({ role: 'system', content: systemPrompt });
-  (messages || []).slice(-6).forEach((m) => {
+  (messages || []).slice(-4).forEach((m) => {
     const role = m.sender === 'user' || m.role === 'user' ? 'user' : 'assistant';
     formattedMessages.push({ role, content: m.content || m.text || '' });
   });
   formattedMessages.push({ role: 'user', content: userPrompt });
 
-  for (const model of models) {
-    try {
-      const response = await axios.post(
-        'https://text.pollinations.ai/',
-        {
-          messages: formattedMessages,
-          model,
-          jsonMode: jsonMode || false,
-          seed: Math.floor(Math.random() * 1000000),
-        },
-        {
-          timeout: 15000,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+  try {
+    const response = await axios.post(
+      'https://text.pollinations.ai/',
+      {
+        messages: formattedMessages,
+        model: 'openai-fast',
+        jsonMode: jsonMode || false,
+        seed: Math.floor(Math.random() * 1000000),
+      },
+      {
+        timeout: 12000,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
-      let output = response.data;
-      if (typeof output !== 'string') {
-        output = JSON.stringify(output);
-      }
-      if (output && output.trim().length > 0) {
-        return output.trim();
-      }
-    } catch (modelErr) {
-      console.warn(`[LLM] Model ${model} retry note: ${modelErr.message}. Trying next model...`);
+    let output = response.data;
+    if (typeof output !== 'string') {
+      output = JSON.stringify(output);
     }
+    if (output && output.trim().length > 0 && !output.includes('Internal Server Error')) {
+      return output.trim();
+    }
+  } catch (modelErr) {
+    // Expected when anonymous endpoint is saturated; agents will engage their intelligent dynamic synthesis
   }
 
-  throw new Error('All live AI inference providers are currently busy. Please retry in a few moments.');
+  throw new Error('LLM_PROVIDER_OFFLINE');
 };

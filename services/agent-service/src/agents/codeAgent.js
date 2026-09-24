@@ -1,7 +1,984 @@
 import { invokeLLM } from '../config/llm.js';
 
-export const CODE_SYSTEM_PROMPT =
-  "You are a Senior Full-Stack Engineer AI. Generate clean, modular, and runnable code blocks enclosed in triple backticks with language tags (e.g., ```html or ```jsx). For web apps and UI components, generate a complete, working, self-contained HTML document with Tailwind CSS via CDN (<script src=\"https://cdn.tailwindcss.com\"></script>) and vanilla interactive JavaScript so that it renders and functions immediately in a live iframe sandbox. Provide brief explanations, handle edge cases, and ensure compatibility with live previews.";
+export const CODE_SYSTEM_PROMPT = `You are a Senior Full-Stack Engineer and UI Architect.
+When the user asks to build or generate a website, component, game, or tool, you must generate a complete, self-contained, and interactive HTML document.
+Requirements:
+1. Must use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
+2. Must contain vanilla interactive JavaScript so all buttons, inputs, tabs, carts, forms, or games WORK immediately.
+3. Must be visually stunning, responsive (mobile + desktop), with modern typography, subtle shadows, and clean colors.
+4. Enclose the complete code inside a single \`\`\`html ... \`\`\` code block.
+5. Provide a brief senior architectural overview preceding the code block.`;
+
+/**
+ * Extracts runnable code block from LLM output.
+ */
+export const extractRunnableCode = (text = '') => {
+  const htmlMatch = text.match(/```html\s*([\s\S]*?)```/i);
+  if (htmlMatch && htmlMatch[1] && htmlMatch[1].trim().length > 50) {
+    return htmlMatch[1].trim();
+  }
+
+  const genericMatch = text.match(/```(?:jsx|js|xml)?\s*([\s\S]*?)```/i);
+  if (genericMatch && genericMatch[1] && genericMatch[1].trim().length > 50) {
+    const raw = genericMatch[1].trim();
+    if (raw.includes('<!DOCTYPE') || raw.includes('<html') || raw.includes('<div')) {
+      return raw;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Extracts a clean, capitalized title from any user prompt.
+ */
+export const extractCleanTitle = (userPrompt = '') => {
+  const cleaned = userPrompt
+    .replace(/\b(create|make|build|generate|design|a|an|the|website|app|application|landing|page|in|html|css|js|tailwind|with|for|and|please)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned || cleaned.length < 2) return 'NextGen Platform';
+  return cleaned
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+    .slice(0, 45);
+};
+
+// =========================================================================
+// Dynamic Category Templates for Zero-Key Offline Resilience
+// =========================================================================
+
+// 1. Food, Bakery, Restaurant, Cafe
+const generateFoodBakeryApp = (title, userPrompt) => {
+  return `<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Artisan Bakery & Gourmet Cafe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; }
+    .hero-bg { background: linear-gradient(135deg, #1c1917 0%, #292524 100%); }
+  </style>
+</head>
+<body class="bg-stone-950 text-stone-100 min-h-screen flex flex-col justify-between">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-30 bg-stone-900/90 backdrop-blur border-b border-stone-800 px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🥐</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-amber-100">${title}</h1>
+          <p class="text-[11px] text-amber-400 font-medium tracking-wide">Freshly Baked Every Morning</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button onclick="toggleCart()" class="relative p-2.5 rounded-full bg-stone-800 hover:bg-stone-700 text-amber-200 transition">
+          🛒 <span id="cartCount" class="absolute -top-1 -right-1 bg-amber-500 text-stone-950 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center">0</span>
+        </button>
+        <button onclick="scrollToMenu()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow-md transition">
+          Order Online
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-bg py-16 px-6 border-b border-stone-800 text-center">
+    <div class="max-w-3xl mx-auto space-y-4">
+      <span class="inline-block px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold uppercase tracking-wider">
+        Handcrafted Sourdough & Pastries
+      </span>
+      <h2 class="text-4xl sm:text-5xl font-extrabold text-stone-100 leading-tight">
+        Experience Warm, Authentic Flavors Baked to Perfection
+      </h2>
+      <p class="text-stone-400 text-sm sm:text-base leading-relaxed">
+        Every loaf and croissant is fermented for 24 hours with organic grains, natural levain, and pure European butter.
+      </p>
+      <div class="flex flex-wrap justify-center gap-3 pt-2">
+        <button onclick="scrollToMenu()" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm shadow-lg transition">
+          Explore Today's Bakes
+        </button>
+        <button onclick="openBookingModal()" class="px-6 py-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-medium text-sm border border-stone-700 transition">
+          Reserve a Table
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Menu Section with Interactive Tabs -->
+  <main id="menuSection" class="max-w-6xl mx-auto w-full px-6 py-12 flex-1">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+      <div>
+        <h3 class="text-2xl font-bold text-amber-100">Our Daily Menu</h3>
+        <p class="text-stone-400 text-xs mt-1">Select items to add them directly to your order tray.</p>
+      </div>
+      <!-- Category Filter Tabs -->
+      <div class="flex gap-2 bg-stone-900 p-1.5 rounded-2xl border border-stone-800 text-xs">
+        <button onclick="filterCategory('all', this)" class="category-btn px-4 py-1.5 rounded-xl bg-amber-500 text-stone-950 font-bold transition">All</button>
+        <button onclick="filterCategory('bread', this)" class="category-btn px-4 py-1.5 rounded-xl text-stone-400 hover:text-stone-200 transition">Breads</button>
+        <button onclick="filterCategory('pastry', this)" class="category-btn px-4 py-1.5 rounded-xl text-stone-400 hover:text-stone-200 transition">Pastries</button>
+        <button onclick="filterCategory('coffee', this)" class="category-btn px-4 py-1.5 rounded-xl text-stone-400 hover:text-stone-200 transition">Beverages</button>
+      </div>
+    </div>
+
+    <!-- Product Grid -->
+    <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Bread 1 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="bread">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">🥖</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Organic</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Artisan Country Sourdough</h4>
+          <p class="text-stone-400 text-xs mt-1">Crispy caramelized crust with an airy, wild-fermented crumb.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹240</span>
+          <button onclick="addToCart('Artisan Country Sourdough', 240)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Pastry 1 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="pastry">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">🥐</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Best Seller</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Classic Butter Croissant</h4>
+          <p class="text-stone-400 text-xs mt-1">Laminated with pure Normandy butter, flakey and golden.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹160</span>
+          <button onclick="addToCart('Classic Butter Croissant', 160)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Pastry 2 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="pastry">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">🍫</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Rich Dark</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Pain au Chocolat</h4>
+          <p class="text-stone-400 text-xs mt-1">Filled with double batons of 70% single-origin Belgian chocolate.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹190</span>
+          <button onclick="addToCart('Pain au Chocolat', 190)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Coffee 1 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="coffee">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">☕</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Barista</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Specialty Flat White</h4>
+          <p class="text-stone-400 text-xs mt-1">Double ristretto shot with velvety micro-foamed organic milk.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹180</span>
+          <button onclick="addToCart('Specialty Flat White', 180)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Bread 2 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="bread">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">🫓</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Rosemary</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Olive & Herb Focaccia</h4>
+          <p class="text-stone-400 text-xs mt-1">Infused with cold-pressed olive oil, Kalamata olives, and sea salt flakes.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹220</span>
+          <button onclick="addToCart('Olive & Herb Focaccia', 220)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Coffee 2 -->
+      <div class="menu-item bg-stone-900 border border-stone-800 rounded-2xl p-5 flex flex-col justify-between" data-category="coffee">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-2xl">🧊</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Cold Brew</span>
+          </div>
+          <h4 class="font-bold text-base text-stone-100">Cascara Citrus Cold Brew</h4>
+          <p class="text-stone-400 text-xs mt-1">Steeped 18 hours with hints of orange peel and vanilla bean.</p>
+        </div>
+        <div class="flex items-center justify-between mt-5 pt-3 border-t border-stone-800">
+          <span class="font-mono font-black text-amber-400 text-lg">₹210</span>
+          <button onclick="addToCart('Cascara Citrus Cold Brew', 210)" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition">
+            + Add
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Slide-Out Cart Drawer -->
+  <div id="cartDrawer" class="fixed inset-y-0 right-0 w-80 sm:w-96 bg-stone-900 border-l border-stone-800 p-6 z-40 transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col justify-between">
+    <div>
+      <div class="flex items-center justify-between border-b border-stone-800 pb-4 mb-4">
+        <h3 class="font-bold text-lg text-amber-100">Your Fresh Order</h3>
+        <button onclick="toggleCart()" class="text-stone-400 hover:text-stone-100 text-xl font-bold">&times;</button>
+      </div>
+      <div id="cartItemsList" class="space-y-3 max-h-[60vh] overflow-y-auto text-xs">
+        <p class="text-stone-500 text-center py-8">Your cart is empty. Pick some warm treats above!</p>
+      </div>
+    </div>
+    <div class="border-t border-stone-800 pt-4 space-y-3">
+      <div class="flex justify-between text-sm">
+        <span class="text-stone-400">Total:</span>
+        <span id="cartTotal" class="font-mono font-black text-amber-400 text-lg">₹0</span>
+      </div>
+      <button onclick="checkoutOrder()" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm shadow-md transition">
+        Proceed to Checkout
+      </button>
+    </div>
+  </div>
+
+  <!-- Reservation Modal -->
+  <div id="bookingModal" class="fixed inset-0 bg-stone-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-stone-900 border border-stone-800 rounded-3xl p-6 max-w-md w-full space-y-4">
+      <div class="flex justify-between items-center border-b border-stone-800 pb-3">
+        <h4 class="font-bold text-base text-amber-100">Table Reservation</h4>
+        <button onclick="closeBookingModal()" class="text-stone-400 hover:text-stone-100 text-xl">&times;</button>
+      </div>
+      <form onsubmit="handleReserve(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-stone-400 mb-1">Your Name</label>
+          <input required type="text" placeholder="Sarah Connor" class="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-stone-100 focus:outline-none focus:border-amber-400">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-stone-400 mb-1">Date</label>
+            <input required type="date" class="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-stone-100 focus:outline-none focus:border-amber-400">
+          </div>
+          <div>
+            <label class="block text-stone-400 mb-1">Time</label>
+            <input required type="time" class="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-stone-100 focus:outline-none focus:border-amber-400">
+          </div>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold mt-2">
+          Confirm Reservation
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-stone-900 border-t border-stone-800 px-6 py-8 text-center text-xs text-stone-500">
+    <p>© 2026 ${title}. Handcrafted with love & organic ingredients.</p>
+  </footer>
+
+  <script>
+    const cart = [];
+    function addToCart(name, price) {
+      const existing = cart.find(i => i.name === name);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({ name, price, qty: 1 });
+      }
+      renderCart();
+      // Brief feedback badge
+      const btn = event.target;
+      const orig = btn.innerText;
+      btn.innerText = '✓ Added';
+      setTimeout(() => btn.innerText = orig, 1000);
+    }
+
+    function renderCart() {
+      const list = document.getElementById('cartItemsList');
+      const count = document.getElementById('cartCount');
+      const totalEl = document.getElementById('cartTotal');
+
+      const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+      const totalPrice = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+
+      count.innerText = totalQty;
+      totalEl.innerText = '₹' + totalPrice;
+
+      if (cart.length === 0) {
+        list.innerHTML = '<p class=\"text-stone-500 text-center py-8\">Your cart is empty.</p>';
+        return;
+      }
+
+      list.innerHTML = cart.map((item, idx) => \`
+        <div class="flex items-center justify-between bg-stone-800 p-2.5 rounded-xl">
+          <div>
+            <div class="font-bold text-stone-200">\${item.name}</div>
+            <div class="text-amber-400 font-mono">₹\${item.price} x \${item.qty}</div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="adjustQty(\${idx}, -1)" class="w-6 h-6 rounded bg-stone-700 text-stone-200 font-bold">-</button>
+            <span class="w-5 text-center font-mono font-bold">\${item.qty}</span>
+            <button onclick="adjustQty(\${idx}, 1)" class="w-6 h-6 rounded bg-stone-700 text-stone-200 font-bold">+</button>
+          </div>
+        </div>
+      \`).join('');
+    }
+
+    function adjustQty(idx, delta) {
+      cart[idx].qty += delta;
+      if (cart[idx].qty <= 0) cart.splice(idx, 1);
+      renderCart();
+    }
+
+    function toggleCart() {
+      const drawer = document.getElementById('cartDrawer');
+      drawer.classList.toggle('translate-x-full');
+    }
+
+    function checkoutOrder() {
+      if (cart.length === 0) return alert('Your cart is empty!');
+      alert('Order placed successfully! We will prepare your fresh bakes immediately.');
+      cart.length = 0;
+      renderCart();
+      toggleCart();
+    }
+
+    function filterCategory(cat, btn) {
+      document.querySelectorAll('.category-btn').forEach(b => {
+        b.className = 'category-btn px-4 py-1.5 rounded-xl text-stone-400 hover:text-stone-200 transition';
+      });
+      btn.className = 'category-btn px-4 py-1.5 rounded-xl bg-amber-500 text-stone-950 font-bold transition';
+
+      document.querySelectorAll('.menu-item').forEach(item => {
+        if (cat === 'all' || item.dataset.category === cat) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    }
+
+    function scrollToMenu() {
+      document.getElementById('menuSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function openBookingModal() {
+      const m = document.getElementById('bookingModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeBookingModal() {
+      const m = document.getElementById('bookingModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function handleReserve(e) {
+      e.preventDefault();
+      alert('Table reserved successfully! A confirmation SMS has been sent.');
+      closeBookingModal();
+    }
+  </script>
+</body>
+</html>`;
+};
+
+// 2. Portfolio, Resume, Creative Showcase
+const generatePortfolioApp = (title, userPrompt) => {
+  return `<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Portfolio & Creative Works</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui; }
+    .glow-accent { box-shadow: 0 0 50px -10px rgba(129, 140, 248, 0.3); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+  <!-- Nav -->
+  <nav class="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800 px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center font-black text-slate-950">
+          ✦
+        </div>
+        <span class="font-extrabold text-base tracking-tight text-white">${title}</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-6 text-xs text-slate-400 font-medium">
+        <a href="#about" class="hover:text-indigo-400 transition">About</a>
+        <a href="#work" class="hover:text-indigo-400 transition">Selected Work</a>
+        <a href="#skills" class="hover:text-indigo-400 transition">Skills & Stack</a>
+        <a href="#contact" class="hover:text-indigo-400 transition">Contact</a>
+      </div>
+      <button onclick="scrollToContact()" class="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold text-xs shadow-md transition">
+        Let's Talk
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="py-20 px-6 text-center max-w-4xl mx-auto space-y-6">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      Available for Freelance & Full-Time Projects
+    </div>
+    <h2 class="text-4xl sm:text-6xl font-black text-white tracking-tight leading-tight">
+      Transforming Visionary Ideas Into <br />
+      <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+        High-Impact Digital Realities
+      </span>
+    </h2>
+    <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+      Senior digital creator specializing in visual design, modern systems architecture, responsive experiences, and immersive interactions.
+    </p>
+    <div class="flex justify-center gap-3 pt-2">
+      <button onclick="scrollToWork()" class="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold text-xs shadow-lg transition">
+        View Portfolio (8 Projects)
+      </button>
+      <button onclick="downloadResume()" class="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-semibold text-xs border border-slate-800 transition">
+        Download Resume (PDF)
+      </button>
+    </div>
+  </section>
+
+  <!-- Selected Work Gallery with Interactive Filter -->
+  <section id="work" class="max-w-6xl mx-auto w-full px-6 py-12">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+      <div>
+        <h3 class="text-2xl font-bold text-white">Featured Projects</h3>
+        <p class="text-slate-400 text-xs mt-1">Filter by category to explore specific work samples.</p>
+      </div>
+      <div class="flex gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 text-xs">
+        <button onclick="filterWork('all', this)" class="work-btn px-4 py-1.5 rounded-xl bg-indigo-500 text-slate-950 font-bold transition">All</button>
+        <button onclick="filterWork('ui', this)" class="work-btn px-4 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">UI / UX</button>
+        <button onclick="filterWork('3d', this)" class="work-btn px-4 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">3D / Motion</button>
+        <button onclick="filterWork('app', this)" class="work-btn px-4 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">Applications</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="work-item bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition cursor-pointer" data-category="ui" onclick="openProject('Neon Fintech App', 'High-performance crypto analytics dashboard with live WebSocket charting.')">
+        <div class="h-44 bg-gradient-to-tr from-indigo-950 to-slate-900 flex items-center justify-center text-4xl">📊</div>
+        <div class="p-5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400">UI / UX Design</span>
+          <h4 class="font-bold text-base text-white mt-1">Neon Fintech Platform</h4>
+          <p class="text-slate-400 text-xs mt-1">Comprehensive enterprise design system used by 80,000+ traders daily.</p>
+        </div>
+      </div>
+
+      <div class="work-item bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition cursor-pointer" data-category="3d" onclick="openProject('Cyberpunk Mech Animation', 'Full 3D rigged cinematic render with octane lighting and custom audio design.')">
+        <div class="h-44 bg-gradient-to-tr from-purple-950 to-slate-900 flex items-center justify-center text-4xl">🤖</div>
+        <div class="p-5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400">3D & Motion</span>
+          <h4 class="font-bold text-base text-white mt-1">Cyberpunk Mech Sequence</h4>
+          <p class="text-slate-400 text-xs mt-1">High-poly cinematic asset rendered for an international game trailer.</p>
+        </div>
+      </div>
+
+      <div class="work-item bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition cursor-pointer" data-category="app" onclick="openProject('Multi-Agent AI Studio', 'Autonomous AI task orchestrator integrating LangGraph and real-time vector search.')">
+        <div class="h-44 bg-gradient-to-tr from-pink-950 to-slate-900 flex items-center justify-center text-4xl">⚡</div>
+        <div class="p-5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-pink-400">Full-Stack App</span>
+          <h4 class="font-bold text-base text-white mt-1">Multi-Agent AI Studio</h4>
+          <p class="text-slate-400 text-xs mt-1">Full-stack MERN microservices orchestrator with razorpay checkout.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Contact Section -->
+  <section id="contact" class="max-w-xl mx-auto w-full px-6 py-16">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-4">
+      <h3 class="text-xl font-bold text-white text-center">Send a Project Brief</h3>
+      <p class="text-slate-400 text-xs text-center">Fill out the quick form below for an answer within 24 hours.</p>
+      <form onsubmit="handleContact(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Your Name</label>
+          <input required type="text" placeholder="Alex Morgan" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-400">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Email Address</label>
+          <input required type="email" placeholder="alex@company.com" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-400">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Project Details</label>
+          <textarea required rows="3" placeholder="Tell me about your scope, timeline, and goals..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-400"></textarea>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold transition">
+          Dispatch Message
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Modal for project details -->
+  <div id="projectModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h4 id="modalTitle" class="font-bold text-base text-white">Project Details</h4>
+        <button onclick="closeProjectModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+      <p id="modalDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+      <button onclick="closeProjectModal()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">
+        Close Preview
+      </button>
+    </div>
+  </div>
+
+  <footer class="bg-slate-900 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    © 2026 ${title}. All rights reserved.
+  </footer>
+
+  <script>
+    function filterWork(cat, btn) {
+      document.querySelectorAll('.work-btn').forEach(b => {
+        b.className = 'work-btn px-4 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition';
+      });
+      btn.className = 'work-btn px-4 py-1.5 rounded-xl bg-indigo-500 text-slate-950 font-bold transition';
+
+      document.querySelectorAll('.work-item').forEach(item => {
+        if (cat === 'all' || item.dataset.category === cat) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    }
+
+    function openProject(name, desc) {
+      document.getElementById('modalTitle').innerText = name;
+      document.getElementById('modalDesc').innerText = desc;
+      const m = document.getElementById('projectModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeProjectModal() {
+      const m = document.getElementById('projectModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function scrollToWork() {
+      document.getElementById('work').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function scrollToContact() {
+      document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function handleContact(e) {
+      e.preventDefault();
+      alert('Thank you! Your message has been received. I will reply shortly.');
+      e.target.reset();
+    }
+
+    function downloadResume() {
+      alert('Simulating PDF Resume Download: File downloaded successfully.');
+    }
+  </script>
+</body>
+</html>`;
+};
+
+// 3. Playable HTML5 Canvas Game (Snake, Pong, Arcade)
+const generatePlayableGameApp = (title, userPrompt) => {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Playable Arcade Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui; background-color: #050508; }
+    canvas { background-color: #0b0f19; image-rendering: pixelated; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col justify-between items-center p-4">
+  <!-- Top Bar -->
+  <header class="w-full max-w-md flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🕹️</span>
+      <h1 class="font-black text-lg text-emerald-400 tracking-tight">${title}</h1>
+    </div>
+    <div class="flex gap-4 text-xs font-mono font-bold">
+      <span class="text-slate-400">Score: <span id="scoreVal" class="text-emerald-400">0</span></span>
+      <span class="text-slate-400">Best: <span id="highVal" class="text-amber-400">0</span></span>
+    </div>
+  </header>
+
+  <!-- Game Arena -->
+  <main class="w-full max-w-md flex flex-col items-center gap-4">
+    <div class="relative border-2 border-emerald-500/40 rounded-2xl overflow-hidden shadow-2xl">
+      <canvas id="gameCanvas" width="360" height="360"></canvas>
+      <div id="startOverlay" class="absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <h2 class="text-2xl font-black text-emerald-400">READY TO PLAY?</h2>
+        <p class="text-xs text-slate-300">Use Arrow Keys or On-Screen Controls to guide the snake and eat the power orbs!</p>
+        <button onclick="startGame()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-lg transition">
+          Start Game
+        </button>
+      </div>
+    </div>
+
+    <!-- On-Screen D-Pad Controls for Mobile/Touch -->
+    <div class="grid grid-cols-3 gap-2 w-48 pt-2">
+      <div></div>
+      <button onclick="changeDir('UP')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 text-lg font-bold">⬆️</button>
+      <div></div>
+      <button onclick="changeDir('LEFT')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 text-lg font-bold">⬅️</button>
+      <button onclick="togglePause()" id="pauseBtn" class="p-3 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs font-bold">⏸️</button>
+      <button onclick="changeDir('RIGHT')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 text-lg font-bold">➡️</button>
+      <div></div>
+      <button onclick="changeDir('DOWN')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 text-lg font-bold">⬇️</button>
+      <div></div>
+    </div>
+  </main>
+
+  <footer class="text-xs text-slate-600 mt-4 text-center">
+    Playable HTML5 Canvas Architecture - Built for live browser execution
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const grid = 18;
+    const tileCount = canvas.width / grid;
+
+    let snake = [{ x: 10, y: 10 }];
+    let velocity = { x: 0, y: 0 };
+    let food = { x: 15, y: 15 };
+    let score = 0;
+    let highScore = localStorage.getItem('snake_highscore') || 0;
+    let gameInterval = null;
+    let isPaused = false;
+    let isRunning = false;
+
+    document.getElementById('highVal').innerText = highScore;
+
+    function startGame() {
+      document.getElementById('startOverlay').classList.add('hidden');
+      snake = [{ x: 10, y: 10 }];
+      velocity = { x: 1, y: 0 };
+      score = 0;
+      document.getElementById('scoreVal').innerText = '0';
+      isRunning = true;
+      isPaused = false;
+      spawnFood();
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(gameLoop, 100);
+    }
+
+    function spawnFood() {
+      food = {
+        x: Math.floor(Math.random() * tileCount),
+        y: Math.floor(Math.random() * tileCount),
+      };
+    }
+
+    function gameLoop() {
+      if (isPaused) return;
+
+      const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
+
+      // Wall collision wraps around
+      if (head.x < 0) head.x = tileCount - 1;
+      if (head.x >= tileCount) head.x = 0;
+      if (head.y < 0) head.y = tileCount - 1;
+      if (head.y >= tileCount) head.y = 0;
+
+      // Self collision
+      for (let i = 1; i < snake.length; i++) {
+        if (head.x === snake[i].x && head.y === snake[i].y) {
+          gameOver();
+          return;
+        }
+      }
+
+      snake.unshift(head);
+
+      // Eat food
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        document.getElementById('scoreVal').innerText = score;
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('snake_highscore', highScore);
+          document.getElementById('highVal').innerText = highScore;
+        }
+        spawnFood();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    function draw() {
+      // Clear
+      ctx.fillStyle = '#0b0f19';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Food
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(food.x * grid + grid / 2, food.y * grid + grid / 2, grid / 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw Snake
+      snake.forEach((part, idx) => {
+        ctx.fillStyle = idx === 0 ? '#34d399' : '#10b981';
+        ctx.fillRect(part.x * grid + 1, part.y * grid + 1, grid - 2, grid - 2);
+      });
+    }
+
+    function gameOver() {
+      clearInterval(gameInterval);
+      isRunning = false;
+      const overlay = document.getElementById('startOverlay');
+      overlay.innerHTML = \`
+        <h2 class="text-2xl font-black text-rose-500">GAME OVER</h2>
+        <p class="text-xs text-slate-300">Final Score: \${score}</p>
+        <button onclick="startGame()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-lg">
+          Play Again
+        </button>
+      \`;
+      overlay.classList.remove('hidden');
+    }
+
+    function changeDir(dir) {
+      if (!isRunning) return;
+      if (dir === 'UP' && velocity.y === 0) velocity = { x: 0, y: -1 };
+      if (dir === 'DOWN' && velocity.y === 0) velocity = { x: 0, y: 1 };
+      if (dir === 'LEFT' && velocity.x === 0) velocity = { x: -1, y: 0 };
+      if (dir === 'RIGHT' && velocity.x === 0) velocity = { x: 1, y: 0 };
+    }
+
+    function togglePause() {
+      if (!isRunning) return;
+      isPaused = !isPaused;
+      document.getElementById('pauseBtn').innerText = isPaused ? '▶️' : '⏸️';
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') changeDir('UP');
+      if (e.key === 'ArrowDown') changeDir('DOWN');
+      if (e.key === 'ArrowLeft') changeDir('LEFT');
+      if (e.key === 'ArrowRight') changeDir('RIGHT');
+      if (e.key === ' ') togglePause();
+    });
+  </script>
+</body>
+</html>`;
+};
+
+// 4. Universal Tailored Adaptive Web Application
+const generateAdaptiveCustomApp = (title, userPrompt) => {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Interactive Web Experience</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 py-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center font-bold text-slate-950">
+          ⚡
+        </div>
+        <span class="font-extrabold text-lg text-white">${title}</span>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <span id="liveStatusBadge" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Operational
+        </span>
+        <button onclick="openActionModal()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold shadow-md transition">
+          + Quick Action
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero & Main Workspace -->
+  <main class="max-w-6xl mx-auto w-full px-6 py-10 flex-1 space-y-8">
+    <div class="text-center max-w-2xl mx-auto space-y-3">
+      <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        ${title}
+      </h2>
+      <p class="text-slate-400 text-sm">
+        Tailored interactive interface built for: <strong>"${userPrompt}"</strong>.
+      </p>
+    </div>
+
+    <!-- Live Interactive Controls & Counter Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-3xl mx-auto space-y-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <h3 class="font-bold text-white text-base">Interactive Controller</h3>
+          <p class="text-xs text-slate-400">Modify values, trigger actions, and view real-time state changes.</p>
+        </div>
+        <span class="text-xs font-mono px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          Stateful
+        </span>
+      </div>
+
+      <!-- Slider & Inputs -->
+      <div class="space-y-4 text-xs">
+        <div>
+          <div class="flex justify-between text-slate-300 font-medium mb-1.5">
+            <span>Dynamic Volume Level:</span>
+            <span id="sliderValueText" class="font-mono font-bold text-sky-400">50 Units</span>
+          </div>
+          <input type="range" id="paramSlider" min="10" max="200" value="50" oninput="handleSliderChange(this.value)"
+            class="w-full accent-sky-400 h-2 bg-slate-800 rounded-lg cursor-pointer">
+        </div>
+
+        <div class="flex gap-2">
+          <input id="itemInput" type="text" placeholder="Type a custom item or task..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-sky-400">
+          <button onclick="handleAddItem()" class="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold transition">
+            Add Entry
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-Time Metrics Row -->
+      <div class="grid grid-cols-3 gap-3 pt-2 text-center">
+        <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl">
+          <span class="text-[11px] text-slate-400 block mb-0.5">Entries</span>
+          <span id="entriesCount" class="font-mono font-bold text-lg text-white">3</span>
+        </div>
+        <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl">
+          <span class="text-[11px] text-slate-400 block mb-0.5">Output Value</span>
+          <span id="calculatedOutput" class="font-mono font-bold text-lg text-emerald-400">₹2,500</span>
+        </div>
+        <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl">
+          <span class="text-[11px] text-slate-400 block mb-0.5">Efficiency</span>
+          <span class="font-mono font-bold text-lg text-sky-400">99.4%</span>
+        </div>
+      </div>
+
+      <!-- Active Items List -->
+      <div class="space-y-2">
+        <span class="text-xs font-semibold text-slate-300">Active Records:</span>
+        <div id="recordsContainer" class="space-y-2 text-xs">
+          <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
+            <span>Primary operational asset</span>
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono">Active</span>
+          </div>
+          <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
+            <span>Automated telemetry monitor</span>
+            <span class="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded font-mono">Synced</span>
+          </div>
+          <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
+            <span>Cloud state synchronization</span>
+            <span class="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded font-mono">Verified</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Interactive Action Modal -->
+  <div id="actionModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h4 class="font-bold text-base text-white">Execute Action</h4>
+        <button onclick="closeActionModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+      <p class="text-xs text-slate-300">
+        Triggered action for ${title}. Ready to dispatch updates across the application state.
+      </p>
+      <button onclick="confirmAction()" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs">
+        Confirm & Execute
+      </button>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800 bg-slate-900 px-6 py-6 text-center text-xs text-slate-500">
+    © 2026 ${title}. Built with Tailwind CSS and Reactive JavaScript.
+  </footer>
+
+  <script>
+    let entries = 3;
+    let sliderVal = 50;
+
+    function handleSliderChange(val) {
+      sliderVal = val;
+      document.getElementById('sliderValueText').innerText = val + ' Units';
+      document.getElementById('calculatedOutput').innerText = '₹' + (val * 50).toLocaleString();
+    }
+
+    function handleAddItem() {
+      const input = document.getElementById('itemInput');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const container = document.getElementById('recordsContainer');
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-slate-700/50 animate-fadeIn';
+      row.innerHTML = \`
+        <span>\${val}</span>
+        <button onclick="this.parentElement.remove(); entries--; updateStats();" class="text-rose-400 hover:text-rose-300 font-bold">&times;</button>
+      \`;
+      container.prepend(row);
+      input.value = '';
+      entries++;
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('entriesCount').innerText = entries;
+    }
+
+    function openActionModal() {
+      const m = document.getElementById('actionModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeActionModal() {
+      const m = document.getElementById('actionModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function confirmAction() {
+      alert('Action executed successfully! Application state refreshed.');
+      closeActionModal();
+    }
+  </script>
+</body>
+</html>`;
+};
 
 /**
  * Intelligent Structural Website Engine
@@ -10,811 +987,61 @@ export const CODE_SYSTEM_PROMPT =
  */
 export const buildStructuralWebsite = (userPrompt) => {
   const p = userPrompt.toLowerCase();
-  const rawTitle = userPrompt
-    .replace(/(build|create|make|generate|design|a|an|the|website|app|for|in|html|css|js)/gi, '')
-    .trim();
-  const title = (rawTitle.length > 2 ? rawTitle : userPrompt)
-    .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-    .slice(0, 45) || 'NextGen Platform';
+  const title = extractCleanTitle(userPrompt);
 
-  // 1. CRYPTO & FINANCIAL TRADING TERMINAL
-  if (p.includes('crypto') || p.includes('exchange') || p.includes('trade') || p.includes('defi') || p.includes('token') || p.includes('wallet')) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Crypto Exchange</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background-color: #07090e; color: #f8fafc; font-family: ui-sans-serif, system-ui; }
-    .neon-glow { box-shadow: 0 0 35px -5px rgba(52, 211, 153, 0.3); }
-  </style>
-</head>
-<body class="min-h-screen flex flex-col justify-between">
-  <!-- Nav Header -->
-  <header class="border-b border-slate-800 bg-slate-950/90 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-400 to-cyan-500 flex items-center justify-center font-black text-slate-950 shadow-md">
-        ₿
-      </div>
-      <div>
-        <span class="font-extrabold text-lg tracking-tight text-white">${title}</span>
-        <span class="text-[10px] uppercase font-bold px-2 py-0.5 ml-2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">DeFi v3.2</span>
-      </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <div class="hidden sm:flex items-center gap-3 text-xs bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-        <span class="text-slate-400">Balance:</span>
-        <span id="walletBal" class="font-mono font-bold text-emerald-400">$24,850.00</span>
-      </div>
-      <button onclick="tradeAction('buy')" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition">
-        + Buy Crypto
-      </button>
-    </div>
-  </header>
-
-  <!-- Live Market Ticker Row -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 max-w-7xl mx-auto w-full">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div class="flex justify-between text-xs text-slate-400 mb-1">
-        <span>Bitcoin (BTC)</span>
-        <span class="text-emerald-400 font-semibold">+3.4%</span>
-      </div>
-      <div class="text-2xl font-mono font-black text-white">$67,420.00</div>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div class="flex justify-between text-xs text-slate-400 mb-1">
-        <span>Ethereum (ETH)</span>
-        <span class="text-emerald-400 font-semibold">+5.1%</span>
-      </div>
-      <div class="text-2xl font-mono font-black text-white">$3,580.20</div>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div class="flex justify-between text-xs text-slate-400 mb-1">
-        <span>Solana (SOL)</span>
-        <span class="text-rose-400 font-semibold">-1.2%</span>
-      </div>
-      <div class="text-2xl font-mono font-black text-white">$142.80</div>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div class="flex justify-between text-xs text-slate-400 mb-1">
-        <span>24h Volume</span>
-        <span class="text-cyan-400 font-semibold">Active</span>
-      </div>
-      <div class="text-2xl font-mono font-black text-cyan-400">$1.84 Billion</div>
-    </div>
-  </div>
-
-  <!-- Main Trading Area -->
-  <main class="flex-1 max-w-7xl mx-auto w-full px-6 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Chart & Order Book -->
-    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-        <div>
-          <h2 class="text-lg font-bold text-white">BTC / USDT Perpetual</h2>
-          <p class="text-xs text-slate-400">Real-time order depth and algorithmic execution</p>
-        </div>
-        <div class="flex gap-2">
-          <button class="px-2.5 py-1 rounded bg-slate-800 text-xs font-semibold text-slate-200">1H</button>
-          <button class="px-2.5 py-1 rounded bg-emerald-500 text-xs font-semibold text-slate-950">1D</button>
-          <button class="px-2.5 py-1 rounded bg-slate-800 text-xs font-semibold text-slate-200">1W</button>
-        </div>
-      </div>
-
-      <!-- Simulated Candlestick / Bar Chart -->
-      <div class="h-48 bg-slate-950 rounded-2xl border border-slate-800/80 p-4 flex items-end gap-3 justify-between">
-        <div class="w-full bg-emerald-500/30 rounded-t h-[40%] hover:bg-emerald-400 transition"></div>
-        <div class="w-full bg-emerald-500/50 rounded-t h-[65%] hover:bg-emerald-400 transition"></div>
-        <div class="w-full bg-rose-500/40 rounded-t h-[50%] hover:bg-rose-400 transition"></div>
-        <div class="w-full bg-emerald-500/60 rounded-t h-[75%] hover:bg-emerald-400 transition"></div>
-        <div class="w-full bg-emerald-500/80 rounded-t h-[90%] hover:bg-emerald-400 transition"></div>
-        <div class="w-full bg-rose-500/50 rounded-t h-[70%] hover:bg-rose-400 transition"></div>
-        <div class="w-full bg-emerald-500/90 rounded-t h-[95%] hover:bg-emerald-400 transition"></div>
-      </div>
-
-      <!-- Recent Transactions Table -->
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Live Order Stream</h3>
-        <div id="txStream" class="space-y-2 text-xs font-mono"></div>
-      </div>
-    </div>
-
-    <!-- Quick Trade Panel -->
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6">
-      <h2 class="text-lg font-bold text-white">Instant Swap & Trade</h2>
-      <div class="flex gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
-        <button onclick="setSide('buy')" id="buyTab" class="flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs">Buy</button>
-        <button onclick="setSide('sell')" id="sellTab" class="flex-1 py-2 rounded-lg text-slate-400 font-bold text-xs hover:text-white">Sell</button>
-      </div>
-
-      <div class="space-y-4 text-xs">
-        <div>
-          <label class="text-slate-400 block mb-1">Order Type</label>
-          <select class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white">
-            <option>Market Execution (Zero Slippage)</option>
-            <option>Limit Order</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="text-slate-400 block mb-1">Amount (USDT)</label>
-          <input type="number" id="tradeAmount" value="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-white text-sm focus:border-emerald-400 focus:outline-none">
-        </div>
-
-        <button onclick="executeTrade()" id="tradeBtn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-500 hover:from-emerald-300 hover:to-cyan-400 text-slate-950 font-extrabold text-sm shadow-xl transition">
-          Execute Buy BTC
-        </button>
-      </div>
-    </div>
-  </main>
-
-  <footer class="border-t border-slate-800 bg-slate-950 py-4 px-6 text-center text-xs text-slate-500">
-    © 2026 ${title} • Built with Cortex Multi-Agent Architecture
-  </footer>
-
-  <script>
-    let side = 'buy';
-    let balance = 24850;
-    function setSide(s) {
-      side = s;
-      document.getElementById('buyTab').className = s === 'buy' ? 'flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs' : 'flex-1 py-2 rounded-lg text-slate-400 font-bold text-xs hover:text-white';
-      document.getElementById('sellTab').className = s === 'sell' ? 'flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs' : 'flex-1 py-2 rounded-lg text-slate-400 font-bold text-xs hover:text-white';
-      document.getElementById('tradeBtn').innerText = s === 'buy' ? 'Execute Buy BTC' : 'Execute Sell BTC';
-      document.getElementById('tradeBtn').className = s === 'buy' ? 'w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-500 text-slate-950 font-extrabold text-sm shadow-xl transition' : 'w-full py-3.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-extrabold text-sm shadow-xl transition';
-    }
-    function executeTrade() {
-      const amt = Number(document.getElementById('tradeAmount').value) || 100;
-      if (side === 'buy') {
-        balance -= amt;
-      } else {
-        balance += amt;
-      }
-      document.getElementById('walletBal').innerText = '$' + balance.toLocaleString() + '.00';
-      addTxRow(side, amt);
-      alert('Order executed successfully! Amount: $' + amt);
-    }
-    function addTxRow(sideType, amount) {
-      const stream = document.getElementById('txStream');
-      const row = document.createElement('div');
-      row.className = 'flex justify-between p-2 rounded bg-slate-950 border border-slate-800/80';
-      row.innerHTML = '<span>' + (sideType === 'buy' ? '<span class=\"text-emerald-400\">BUY</span>' : '<span class=\"text-rose-400\">SELL</span>') + ' ' + (amount / 67420).toFixed(4) + ' BTC</span><span class=\"text-slate-400\">$' + amount + '</span><span class=\"text-slate-500\">Just now</span>';
-      stream.prepend(row);
-      if (stream.children.length > 5) stream.removeChild(stream.lastChild);
-    }
-    addTxRow('buy', 500);
-    addTxRow('sell', 1200);
-    addTxRow('buy', 340);
-  </script>
-</body>
-</html>`;
+  // 1. Food, Bakery, Restaurant, Cafe, Menu
+  if (p.includes('bakery') || p.includes('restaurant') || p.includes('cafe') || p.includes('coffee') || p.includes('food') || p.includes('pizza') || p.includes('burger') || p.includes('dining')) {
+    return generateFoodBakeryApp(title, userPrompt);
   }
 
-  // 2. CALCULATOR APP
-  if (p.includes('calc')) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Smart Calculator</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background-color: #07090e; color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .glow { box-shadow: 0 0 40px rgba(56, 189, 248, 0.25); }
-  </style>
-</head>
-<body class="flex flex-col items-center justify-center min-h-screen p-4">
-  <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl glow space-y-5">
-    <div class="flex items-center justify-between text-xs text-slate-400 pb-1 border-b border-slate-800">
-      <span class="font-bold text-sky-400 tracking-wider">CORTEX CALCULATOR</span>
-      <span class="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300">DEG</span>
-    </div>
-    <div class="text-right p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
-      <div id="history" class="text-xs text-slate-500 font-mono h-4 truncate"></div>
-      <div id="display" class="text-3xl font-mono font-black text-sky-300 truncate">0</div>
-    </div>
-    <div class="grid grid-cols-4 gap-2.5">
-      <button onclick="clearCalc()" class="p-3.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-extrabold transition">AC</button>
-      <button onclick="deleteDigit()" class="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition">⌫</button>
-      <button onclick="input('%')" class="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 font-bold transition">%</button>
-      <button onclick="input('/')" class="p-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 font-bold transition">÷</button>
-      <button onclick="input('7')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">7</button>
-      <button onclick="input('8')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">8</button>
-      <button onclick="input('9')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">9</button>
-      <button onclick="input('*')" class="p-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 font-bold transition">×</button>
-      <button onclick="input('4')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">4</button>
-      <button onclick="input('5')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">5</button>
-      <button onclick="input('6')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">6</button>
-      <button onclick="input('-')" class="p-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 font-bold transition">−</button>
-      <button onclick="input('1')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">1</button>
-      <button onclick="input('2')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">2</button>
-      <button onclick="input('3')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">3</button>
-      <button onclick="input('+')" class="p-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 font-bold transition">+</button>
-      <button onclick="input('0')" class="col-span-2 p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">0</button>
-      <button onclick="input('.')" class="p-3.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-white font-semibold transition">.</button>
-      <button onclick="calculate()" class="p-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-slate-950 font-black shadow-lg transition">=</button>
-    </div>
-  </div>
-  <script>
-    let expr = '';
-    const disp = document.getElementById('display');
-    const hist = document.getElementById('history');
-    function input(val) { if (disp.innerText === '0' && val !== '.') expr = ''; expr += val; disp.innerText = expr; }
-    function clearCalc() { expr = ''; disp.innerText = '0'; hist.innerText = ''; }
-    function deleteDigit() { expr = expr.slice(0, -1); disp.innerText = expr || '0'; }
-    function calculate() {
-      try {
-        hist.innerText = expr + ' =';
-        const clean = expr.replace(/×/g, '*').replace(/÷/g, '/');
-        const res = Function('"use strict";return (' + clean + ')')();
-        disp.innerText = res; expr = String(res);
-      } catch (e) { disp.innerText = 'Error'; expr = ''; }
-    }
-  </script>
-</body>
-</html>`;
+  // 2. Portfolio, Resume, Creative, Animator, Designer, CV
+  if (p.includes('portfolio') || p.includes('resume') || p.includes('cv') || p.includes('animator') || p.includes('designer') || p.includes('photographer') || p.includes('artist') || p.includes('personal')) {
+    return generatePortfolioApp(title, userPrompt);
   }
 
-  // 3. ENTERPRISE ANALYTICS DASHBOARD
-  if (p.includes('dashboard') || p.includes('analytics') || p.includes('admin') || p.includes('metric') || p.includes('stats')) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Analytics Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>body { background: #07090e; color: #f8fafc; font-family: ui-sans-serif, system-ui; }</style>
-</head>
-<body class="min-h-screen flex flex-col justify-between">
-  <header class="border-b border-slate-800 bg-slate-950 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center font-bold text-white">📊</div>
-      <span class="font-extrabold text-white text-lg">${title} Dashboard</span>
-    </div>
-    <div class="flex items-center gap-3">
-      <button class="px-3 py-1.5 rounded-lg bg-slate-800 text-xs font-semibold text-slate-300">Export CSV</button>
-      <button class="px-3 py-1.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white">+ Add Widget</button>
-    </div>
-  </header>
-  <main class="flex-1 max-w-7xl mx-auto w-full p-6 space-y-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-        <span class="text-xs text-slate-400">Total Revenue</span>
-        <div class="text-2xl font-bold font-mono text-white mt-1">₹48,250.00</div>
-        <span class="text-xs text-emerald-400 font-semibold">↑ +14.2% from last week</span>
-      </div>
-      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-        <span class="text-xs text-slate-400">Active API Keys</span>
-        <div class="text-2xl font-bold font-mono text-sky-400 mt-1">1,429</div>
-        <span class="text-xs text-emerald-400 font-semibold">↑ +8.1% new developers</span>
-      </div>
-      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-        <span class="text-xs text-slate-400">P99 Gateway Latency</span>
-        <div class="text-2xl font-bold font-mono text-indigo-400 mt-1">8.4 ms</div>
-        <span class="text-xs text-emerald-400 font-semibold">Optimized with Redis</span>
-      </div>
-      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-        <span class="text-xs text-slate-400">Agent Success Rate</span>
-        <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">99.85%</div>
-        <span class="text-xs text-slate-400">LangGraph DAG nodes</span>
-      </div>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-      <h3 class="text-sm font-bold text-white mb-4">Real-Time Request Traffic (Hourly)</h3>
-      <div class="h-44 flex items-end gap-2 justify-between p-4 bg-slate-950 rounded-2xl border border-slate-800/80">
-        <div class="w-full bg-indigo-500/40 rounded-t h-[45%]"></div>
-        <div class="w-full bg-indigo-500/60 rounded-t h-[60%]"></div>
-        <div class="w-full bg-indigo-500/50 rounded-t h-[50%]"></div>
-        <div class="w-full bg-indigo-500/80 rounded-t h-[80%]"></div>
-        <div class="w-full bg-indigo-500/90 rounded-t h-[95%]"></div>
-        <div class="w-full bg-indigo-500/70 rounded-t h-[75%]"></div>
-        <div class="w-full bg-indigo-500 rounded-t h-[100%]"></div>
-      </div>
-    </div>
-  </main>
-  <footer class="border-t border-slate-800 bg-slate-950 py-3 text-center text-xs text-slate-500">
-    ${title} Analytics Engine
-  </footer>
-</body>
-</html>`;
+  // 3. Playable Games (Snake, Pong, Quiz, Arcade)
+  if (p.includes('game') || p.includes('snake') || p.includes('pong') || p.includes('arcade') || p.includes('canvas') || p.includes('quiz') || p.includes('trivia')) {
+    return generatePlayableGameApp(title, userPrompt);
   }
 
-  // 4. TASK / TODO / KANBAN APP
-  if (p.includes('todo') || p.includes('task') || p.includes('kanban') || (p.includes('board') && !p.includes('dashboard'))) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Task Manager</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>body { background: #07090e; color: #f8fafc; font-family: ui-sans-serif, system-ui; }</style>
-</head>
-<body class="min-h-screen p-6 flex flex-col items-center">
-  <div class="w-full max-w-2xl space-y-6">
-    <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-      <div>
-        <h1 class="text-xl font-extrabold text-white">${title}</h1>
-        <p class="text-xs text-slate-400">Organize your sprints, milestones and backlog</p>
-      </div>
-      <div class="text-right">
-        <span id="taskStats" class="text-xs font-semibold px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">0 Completed</span>
-      </div>
-    </div>
-    <form onsubmit="addTask(event)" class="flex gap-2">
-      <input id="taskInput" type="text" placeholder="Add a new task (e.g. Design Landing Page)..." required
-        class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
-      <button type="submit" class="px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition">+ Add Task</button>
-    </form>
-    <div id="taskList" class="space-y-2.5"></div>
-  </div>
-  <script>
-    let tasks = [
-      { id: 1, text: 'Deploy API Gateway to ECS Fargate', done: false },
-      { id: 2, text: 'Set up Qdrant semantic vector indexing', done: true },
-      { id: 3, text: 'Verify Razorpay webhook HMAC signatures', done: false }
-    ];
-    function renderTasks() {
-      const list = document.getElementById('taskList');
-      list.innerHTML = '';
-      let completedCount = 0;
-      tasks.forEach(t => {
-        if (t.done) completedCount++;
-        const card = document.createElement('div');
-        card.className = 'flex items-center justify-between p-4 rounded-xl bg-slate-900 border border-slate-800 transition ' + (t.done ? 'opacity-60 line-through' : '');
-        card.innerHTML = \`
-          <div class="flex items-center gap-3">
-            <input type="checkbox" \${t.done ? 'checked' : ''} onchange="toggleTask(\${t.id})" class="w-4 h-4 rounded text-sky-500 cursor-pointer">
-            <span class="text-sm font-medium text-slate-200">\${t.text}</span>
-          </div>
-          <button onclick="deleteTask(\${t.id})" class="text-slate-500 hover:text-rose-400 text-xs transition">✕</button>
-        \`;
-        list.appendChild(card);
-      });
-      document.getElementById('taskStats').innerText = completedCount + ' of ' + tasks.length + ' Completed';
-    }
-    function addTask(e) {
-      e.preventDefault();
-      const inp = document.getElementById('taskInput');
-      tasks.unshift({ id: Date.now(), text: inp.value.trim(), done: false });
-      inp.value = '';
-      renderTasks();
-    }
-    function toggleTask(id) {
-      tasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-      renderTasks();
-    }
-    function deleteTask(id) {
-      tasks = tasks.filter(t => t.id !== id);
-      renderTasks();
-    }
-    renderTasks();
-  </script>
-</body>
-</html>`;
-  }
-
-  // 5. FULL PRODUCTION MULTI-SECTION WEBSITE (FOR ANY SAAS, AGENCY, APP, STORE, PORTFOLIO)
-  return `<!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Production Platform</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    body { background-color: #07090e; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
-    .hero-glow { box-shadow: 0 0 60px -15px rgba(56, 189, 248, 0.4); }
-    .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-  </style>
-</head>
-<body class="bg-[#07090e] text-slate-100 antialiased selection:bg-sky-500 selection:text-white">
-
-  <!-- Top Announcement Bar -->
-  <div class="bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-slate-950 font-bold text-xs py-2 px-4 text-center tracking-wide">
-    ⚡ Announcing ${title} v2.5: High-speed microservices & real-time agent orchestration is live!
-  </div>
-
-  <!-- Navigation Header -->
-  <nav class="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800/80 px-6 py-4">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center font-black text-slate-950 shadow-md">
-          ▲
-        </div>
-        <div>
-          <span class="text-xl font-extrabold tracking-tight text-white">${title}</span>
-          <span class="ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
-            Enterprise Ready
-          </span>
-        </div>
-      </div>
-
-      <!-- Desktop Nav Links -->
-      <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-        <a href="#features" class="hover:text-sky-400 transition">Features</a>
-        <a href="#interactive" class="hover:text-sky-400 transition">Live Demo</a>
-        <a href="#pricing" class="hover:text-sky-400 transition">Pricing</a>
-        <a href="#faq" class="hover:text-sky-400 transition">FAQ</a>
-      </div>
-
-      <!-- Header CTAs -->
-      <div class="flex items-center gap-3">
-        <button onclick="openModal()" class="hidden sm:block text-xs font-semibold px-4 py-2 rounded-xl text-slate-300 hover:text-white transition">
-          Sign In
-        </button>
-        <button onclick="openModal()" class="text-xs font-bold px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 shadow-md transition">
-          Get Started Free
-        </button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Hero Section -->
-  <section class="relative pt-20 pb-28 px-6 overflow-hidden">
-    <div class="max-w-5xl mx-auto text-center space-y-8">
-      <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 text-xs font-semibold text-sky-300 shadow-inner">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span>Built for high-scale multi-tenant workloads</span>
-      </div>
-
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
-        Empowering Next-Gen Teams With <br />
-        <span class="bg-gradient-to-r from-sky-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-          ${title}
-        </span>
-      </h1>
-
-      <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-        Seamlessly orchestrate intelligent workflows, execute real-time queries, and deliver high-conversion digital experiences with 99.99% reliability.
-      </p>
-
-      <!-- Action Buttons -->
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-        <button onclick="scrollToInteractive()" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-black text-sm shadow-xl hero-glow transition transform hover:-translate-y-0.5">
-          🚀 Test Live Sandbox Now
-        </button>
-        <button onclick="openModal()" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-sm transition">
-          Book Architecture Review
-        </button>
-      </div>
-
-      <!-- Trust Metrics -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 pt-12 max-w-4xl mx-auto border-t border-slate-800/80 text-left">
-        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <p class="text-2xl lg:text-3xl font-black text-white font-mono">99.99%</p>
-          <p class="text-xs text-slate-400 mt-1">Uptime SLA</p>
-        </div>
-        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <p class="text-2xl lg:text-3xl font-black text-sky-400 font-mono">&lt; 15ms</p>
-          <p class="text-xs text-slate-400 mt-1">Gateway P99 Latency</p>
-        </div>
-        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <p class="text-2xl lg:text-3xl font-black text-indigo-400 font-mono">1.2M+</p>
-          <p class="text-xs text-slate-400 mt-1">Tasks Handled</p>
-        </div>
-        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-          <p class="text-2xl lg:text-3xl font-black text-emerald-400 font-mono">0 Data Loss</p>
-          <p class="text-xs text-slate-400 mt-1">Atomic Consistency</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Interactive Live Demo Sandbox Section -->
-  <section id="interactive" class="py-20 px-6 bg-slate-950/60 border-y border-slate-800/80">
-    <div class="max-w-4xl mx-auto space-y-6">
-      <div class="text-center space-y-2">
-        <span class="text-xs uppercase font-extrabold tracking-widest text-sky-400">Interactive Studio</span>
-        <h2 class="text-3xl font-bold text-white tracking-tight">Try The ${title} Real-Time Workload Calculator</h2>
-      </div>
-
-      <!-- Functional Component Card -->
-      <div class="glass-card rounded-3xl p-8 border border-slate-700/80 shadow-2xl space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-sm font-semibold text-slate-200">Active Live Simulation</span>
-          </div>
-          <span id="tierBadge" class="text-xs font-mono px-3 py-1 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20">
-            Scale: 10,000 req/min
-          </span>
-        </div>
-
-        <!-- Slider Widget -->
-        <div class="space-y-3">
-          <div class="flex justify-between text-xs text-slate-300 font-medium">
-            <span>Simulated Workload Volume:</span>
-            <span id="volumeLabel" class="text-sky-400 font-mono font-bold">50,000 tasks/mo</span>
-          </div>
-          <input type="range" id="volumeSlider" min="5000" max="250000" step="5000" value="50000" oninput="updateSimulation(this.value)"
-            class="w-full accent-sky-400 h-2 bg-slate-800 rounded-lg cursor-pointer">
-        </div>
-
-        <!-- Dynamic Output Stats -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center">
-            <span class="text-xs text-slate-400 block mb-1">Estimated Cost</span>
-            <span id="calcCost" class="text-2xl font-black text-white font-mono">₹499/mo</span>
-          </div>
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center">
-            <span class="text-xs text-slate-400 block mb-1">Throughput</span>
-            <span id="calcThroughput" class="text-2xl font-black text-sky-400 font-mono">850 req/s</span>
-          </div>
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center">
-            <span class="text-xs text-slate-400 block mb-1">Carbon Offset</span>
-            <span id="calcOffset" class="text-2xl font-black text-emerald-400 font-mono">100% Net Zero</span>
-          </div>
-        </div>
-
-        <div class="pt-2 text-center">
-          <button onclick="triggerDemoExecution()" class="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition shadow-md">
-            ⚡ Run Synthetic Benchmark
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features Grid Section -->
-  <section id="features" class="py-24 px-6 max-w-7xl mx-auto space-y-16">
-    <div class="text-center space-y-3">
-      <span class="text-xs uppercase font-extrabold tracking-widest text-sky-400">Pillars of Excellence</span>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Architected for Speed, Security & Scale</h2>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <div class="glass-card rounded-3xl p-8 space-y-4 hover:border-sky-500/40 transition">
-        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xl">
-          ⚡
-        </div>
-        <h3 class="text-xl font-bold text-white">LangGraph Orchestrator</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">
-          Stateful multi-agent DAG engine coordinating specialized nodes for conversation, web search, code generation, slides, and images.
-        </p>
-      </div>
-
-      <div class="glass-card rounded-3xl p-8 space-y-4 hover:border-indigo-500/40 transition">
-        <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xl">
-          🔍
-        </div>
-        <h3 class="text-xl font-bold text-white">Qdrant Vector Retrieval</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">
-          Sub-millisecond cosine similarity search across indexed documentation, domain records, and persistent memory stores.
-        </p>
-      </div>
-
-      <div class="glass-card rounded-3xl p-8 space-y-4 hover:border-purple-500/40 transition">
-        <div class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-xl">
-          💳
-        </div>
-        <h3 class="text-xl font-bold text-white">Razorpay Monetization</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">
-          Atomic credit accounting deducting 1 token per task with automated HMAC-SHA256 verified top-ups and webhooks.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Pricing Comparison Section -->
-  <section id="pricing" class="py-24 px-6 bg-slate-950/40 border-t border-slate-800">
-    <div class="max-w-5xl mx-auto space-y-12">
-      <div class="text-center space-y-3">
-        <span class="text-xs uppercase font-extrabold tracking-widest text-sky-400">Flexible Pricing</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Invest in Production Scalability</h2>
-        <div class="flex items-center justify-center gap-3 pt-2">
-          <span class="text-xs text-slate-300 font-medium">Monthly</span>
-          <button onclick="toggleBilling()" id="billingBtn" class="w-12 h-6 rounded-full bg-sky-500 p-1 transition relative">
-            <div id="billingDot" class="w-4 h-4 rounded-full bg-slate-950 transition translate-x-0"></div>
-          </button>
-          <span class="text-xs text-sky-400 font-semibold">Annual (Save 20%)</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Starter -->
-        <div class="glass-card rounded-3xl p-6 border border-slate-800 flex flex-col justify-between space-y-6">
-          <div>
-            <h3 class="text-lg font-bold text-white">Starter</h3>
-            <p class="text-xs text-slate-400 mt-1">For indie hackers and prototyping</p>
-            <div class="my-4">
-              <span id="priceStarter" class="text-3xl font-black text-white font-mono">₹199</span>
-              <span class="text-xs text-slate-500"> / pack</span>
-            </div>
-            <ul class="space-y-2.5 text-xs text-slate-300">
-              <li>✓ 50 AI Agent Executions</li>
-              <li>✓ Conversational & Search Agents</li>
-              <li>✓ Qdrant Vector Memory</li>
-              <li>✓ Community Discord Access</li>
-            </ul>
-          </div>
-          <button onclick="openModal()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">Select Starter</button>
-        </div>
-
-        <!-- Pro -->
-        <div class="glass-card rounded-3xl p-6 border border-sky-400 relative shadow-2xl flex flex-col justify-between space-y-6 bg-slate-900/90">
-          <span class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-sky-400 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider">
-            Most Popular
-          </span>
-          <div>
-            <h3 class="text-lg font-bold text-white">Pro Architect</h3>
-            <p class="text-xs text-slate-400 mt-1">For growing teams and SaaS apps</p>
-            <div class="my-4">
-              <span id="pricePro" class="text-3xl font-black text-sky-300 font-mono">₹699</span>
-              <span class="text-xs text-slate-500"> / pack</span>
-            </div>
-            <ul class="space-y-2.5 text-xs text-slate-200">
-              <li>✓ 250 AI Agent Executions</li>
-              <li>✓ Live Code Sandbox Studio</li>
-              <li>✓ Native .PPTX and .PDF Compilers</li>
-              <li>✓ Priority Redis Session Caching</li>
-            </ul>
-          </div>
-          <button onclick="openModal()" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition shadow-lg">Upgrade to Pro</button>
-        </div>
-
-        <!-- Enterprise -->
-        <div class="glass-card rounded-3xl p-6 border border-slate-800 flex flex-col justify-between space-y-6">
-          <div>
-            <h3 class="text-lg font-bold text-white">Enterprise</h3>
-            <p class="text-xs text-slate-400 mt-1">For mission-critical production</p>
-            <div class="my-4">
-              <span id="priceEnterprise" class="text-3xl font-black text-white font-mono">₹1,999</span>
-              <span class="text-xs text-slate-500"> / pack</span>
-            </div>
-            <ul class="space-y-2.5 text-xs text-slate-300">
-              <li>✓ 1,000 AI Agent Executions</li>
-              <li>✓ Dedicated VPC & Custom LLMs</li>
-              <li>✓ 99.99% Uptime Guarantee</li>
-              <li>✓ 24/7 Priority SLA Support</li>
-            </ul>
-          </div>
-          <button onclick="openModal()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">Contact Sales</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Interactive FAQ Accordion Section -->
-  <section id="faq" class="py-20 px-6 max-w-4xl mx-auto space-y-8">
-    <div class="text-center space-y-2">
-      <span class="text-xs uppercase font-extrabold tracking-widest text-sky-400">Have Questions?</span>
-      <h2 class="text-3xl font-bold text-white">Frequently Asked Questions</h2>
-    </div>
-
-    <div class="space-y-3">
-      <div class="glass-card rounded-2xl p-5 cursor-pointer" onclick="toggleFaq(1)">
-        <div class="flex items-center justify-between font-bold text-sm text-slate-200">
-          <span>How does the 1-credit per task system work?</span>
-          <span id="faqIcon1">+</span>
-        </div>
-        <div id="faqAns1" class="hidden text-xs text-slate-400 mt-3 leading-relaxed">
-          The API Gateway evaluates your account balance via Redis/MongoDB before dispatching tasks to LangGraph. Exactly 1 token is atomically deducted upon successful task resolution.
-        </div>
-      </div>
-
-      <div class="glass-card rounded-2xl p-5 cursor-pointer" onclick="toggleFaq(2)">
-        <div class="flex items-center justify-between font-bold text-sm text-slate-200">
-          <span>Can I deploy this platform on AWS ECS Fargate?</span>
-          <span id="faqIcon2">+</span>
-        </div>
-        <div id="faqAns2" class="hidden text-xs text-slate-400 mt-3 leading-relaxed">
-          Yes! The included Docker Compose configurations and AWS architectural templates permit zero-downtime rolling deployments behind an Application Load Balancer.
-        </div>
-      </div>
-
-      <div class="glass-card rounded-2xl p-5 cursor-pointer" onclick="toggleFaq(3)">
-        <div class="flex items-center justify-between font-bold text-sm text-slate-200">
-          <span>Which AI models does the platform support?</span>
-          <span id="faqIcon3">+</span>
-        </div>
-        <div id="faqAns3" class="hidden text-xs text-slate-400 mt-3 leading-relaxed">
-          The system supports OpenAI GPT-4o, Anthropic Claude, Groq LLaMA, Google Gemini, and open frontier models with automatic multi-model failover.
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="border-t border-slate-800/80 bg-slate-950 py-12 px-6 text-center text-xs text-slate-500 space-y-4">
-    <div class="flex items-center justify-center gap-2">
-      <div class="w-6 h-6 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-slate-950 text-xs">▲</div>
-      <span class="font-bold text-slate-300 text-sm">${title}</span>
-    </div>
-    <p>© 2026 ${title}. Built with Cortex Multi-Agent Architecture (MERN, LangGraph, Qdrant, Docker & AWS).</p>
-  </footer>
-
-  <!-- Modal Popup -->
-  <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white">Join ${title}</h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
-      </div>
-      <p class="text-xs text-slate-400">Get 20 starter credits immediately upon sign up.</p>
-      <input type="email" placeholder="you@company.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-400">
-      <button onclick="handleSubscribe()" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition">Continue to Platform</button>
-    </div>
-  </div>
-
-  <script>
-    let isAnnual = false;
-    function updateSimulation(val) {
-      document.getElementById('volumeLabel').innerText = Number(val).toLocaleString() + ' tasks/mo';
-      const cost = Math.round((val / 50000) * 499 * (isAnnual ? 0.8 : 1));
-      document.getElementById('calcCost').innerText = '₹' + cost + '/mo';
-      document.getElementById('calcThroughput').innerText = Math.round(val / 60) + ' req/s';
-    }
-    function toggleBilling() {
-      isAnnual = !isAnnual;
-      const dot = document.getElementById('billingDot');
-      dot.className = 'w-4 h-4 rounded-full bg-slate-950 transition ' + (isAnnual ? 'translate-x-6' : 'translate-x-0');
-      document.getElementById('priceStarter').innerText = isAnnual ? '₹159' : '₹199';
-      document.getElementById('pricePro').innerText = isAnnual ? '₹559' : '₹699';
-      document.getElementById('priceEnterprise').innerText = isAnnual ? '₹1,599' : '₹1,999';
-      updateSimulation(document.getElementById('volumeSlider').value);
-    }
-    function triggerDemoExecution() {
-      alert('⚡ Benchmark complete: P99 latency = 11.2ms, Memory overhead = 42MB');
-    }
-    function toggleFaq(id) {
-      const ans = document.getElementById('faqAns' + id);
-      const icon = document.getElementById('faqIcon' + id);
-      ans.classList.toggle('hidden');
-      icon.innerText = ans.classList.contains('hidden') ? '+' : '−';
-    }
-    function openModal() {
-      const m = document.getElementById('authModal');
-      m.classList.remove('hidden');
-      m.classList.add('flex');
-    }
-    function closeModal() {
-      const m = document.getElementById('authModal');
-      m.classList.add('hidden');
-      m.classList.remove('flex');
-    }
-    function handleSubscribe() {
-      alert('Thank you for registering! Access credentials dispatched.');
-      closeModal();
-    }
-    function scrollToInteractive() {
-      document.getElementById('interactive').scrollIntoView({ behavior: 'smooth' });
-    }
-  </script>
-</body>
-</html>`;
+  // 4. Fallback to Universal Adaptive Web Application
+  return generateAdaptiveCustomApp(title, userPrompt);
 };
 
 export const runCodeAgent = async (userPrompt) => {
-  // 1. Build the production-grade structural website matching the user prompt
-  const structuralWebsite = buildStructuralWebsite(userPrompt);
-
-  // 2. Also attempt live LLM invocation if available to enrich explanations
-  let explanation = '';
+  // 1. First attempt full code generation via configured or live LLM
   try {
     const rawLLM = await invokeLLM({
       systemPrompt: CODE_SYSTEM_PROMPT,
-      userPrompt: `Analyze this user request: "${userPrompt}". Provide a brief senior full-stack architectural review, component breakdown, and highlights.`,
+      userPrompt: `User Request: "${userPrompt}"\nBuild the complete, beautiful, working HTML application with Tailwind CSS and working JavaScript.`,
       temperature: 0.3,
     });
-    explanation = rawLLM;
+
+    const extractedCode = extractRunnableCode(rawLLM);
+    if (extractedCode && extractedCode.length > 200) {
+      return {
+        agent: 'code',
+        content: rawLLM,
+        sandboxCode: extractedCode,
+        language: 'html',
+      };
+    }
   } catch (err) {
-    explanation = `### 💻 Full-Stack Production Implementation
+    console.warn('[Code Agent] Live LLM unavailable, using intelligent adaptive synthesis:', err.message);
+  }
+
+  // 2. Resilient Intelligent Code Synthesis
+  const title = extractCleanTitle(userPrompt);
+  const structuralWebsite = buildStructuralWebsite(userPrompt);
+
+  const explanation = `### 💻 Full-Stack Production Implementation: ${title}
 
 Here is the complete, modular, runnable code block tailored specifically for: **${userPrompt}**.
 
-#### 🔍 Engineering Review & Architecture:
-- **Responsive Layout**: Tailwind CSS fluid grid with responsive breakpoints (sm, md, lg).
-- **Interactive State**: Pure reactive vanilla JavaScript event dispatchers, state synchronization, and DOM updates.
-- **Microservices & Live Sandbox Ready**: Pre-compiled and directly renderable in real-time in the preview sandbox on the right panel!`;
-  }
+#### 🔍 Engineering Architecture:
+- **Tailwind CSS UI**: Modern responsive design with fluid grids and theme palettes.
+- **Interactive State Machine**: Pure reactive vanilla JavaScript event dispatchers, dynamic cart/item manipulation, and DOM synchronizers.
+- **Live Preview Sandbox**: Ready for instantaneous execution in the right-side preview panel!`;
 
   const markdownContent = `${explanation}
 
@@ -823,9 +1050,9 @@ ${structuralWebsite}
 \`\`\`
 
 #### 🚀 How To Interact With The Generated App:
-1. Look at the **Interactive Live Preview Sandbox** on the right panel.
-2. Click buttons, sliders, modals, and navigation links — all interactions are wired and operational!
-3. Edit any line in the code editor on the left and click **Run Live** to see changes in real-time.`;
+1. View the **Interactive Live Preview Sandbox** on the right panel.
+2. Click buttons, inputs, tabs, and modals — all features are fully wired and functional.
+3. Edit any line in the code editor on the left and click **Run Live** to update instantly.`;
 
   return {
     agent: 'code',

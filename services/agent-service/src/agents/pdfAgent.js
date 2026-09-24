@@ -126,12 +126,14 @@ ${tableRows}
 `;
 };
 
-export const runPdfAgent = async (userPrompt) => {
+export const runPdfAgent = async (userPrompt, model = 'auto') => {
   try {
     const content = await invokeLLM({
       systemPrompt: `${PDF_SYSTEM_PROMPT}\n\nFormat the response strictly using markdown headers (# Title, ## Section, ### Sub-section), bullet points, bold key terms, and a summary data table so it converts cleanly into a professional PDF report.`,
       userPrompt: `Subject / Topic: "${userPrompt}"\nGenerate a complete, formal, professional document for this topic.`,
       temperature: 0.4,
+      model,
+      timeout: 30000,
     });
 
     if (content && content.length > 200) {
@@ -139,6 +141,7 @@ export const runPdfAgent = async (userPrompt) => {
         agent: 'pdf',
         content,
         documentMarkdown: content,
+        metadata: { model, timestamp: new Date() },
       };
     }
   } catch (err) {
@@ -150,5 +153,6 @@ export const runPdfAgent = async (userPrompt) => {
     agent: 'pdf',
     content: doc,
     documentMarkdown: doc,
+    metadata: { model, timestamp: new Date() },
   };
 };

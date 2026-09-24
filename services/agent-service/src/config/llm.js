@@ -87,7 +87,8 @@ export const getLangChainLLM = (temperature = 0.7) => {
 /**
  * Universal dynamic LLM invocation:
  * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, NVIDIA, OpenRouter, Ollama).
- * 2. If no key, seamlessly attempts live inference via fast online models.
+ * 2. If no key, seamlessly attempts live inference via fast online models with extended timeout.
+ * 3. Falls back gracefully with specialized model personas.
  */
 export const invokeLLM = async ({
   systemPrompt,
@@ -96,6 +97,7 @@ export const invokeLLM = async ({
   temperature = 0.7,
   jsonMode = false,
   model = 'auto',
+  timeout = 30000,
 }) => {
   // If user explicitly chose local Cognitive Brain, skip cloud inference directly
   if (model === 'cortex-cognitive') {
@@ -144,7 +146,7 @@ export const invokeLLM = async ({
     }
   }
 
-  // Option 2: Live fast inference
+  // Option 2: Live inference via POST with extended timeout
   const formattedMessages = [];
   if (activeSystemPrompt) formattedMessages.push({ role: 'system', content: activeSystemPrompt });
   (messages || []).slice(-4).forEach((m) => {
@@ -158,13 +160,16 @@ export const invokeLLM = async ({
       'https://text.pollinations.ai/',
       {
         messages: formattedMessages,
-        model: 'openai-fast',
+        model: 'openai',
         jsonMode: jsonMode || false,
         seed: Math.floor(Math.random() * 1000000),
       },
       {
-        timeout: 10000,
-        headers: { 'Content-Type': 'application/json' },
+        timeout: timeout || 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Cortex-AI-Platform/2.0 (engine@cortexai.dev)',
+        },
       }
     );
 
@@ -175,7 +180,24 @@ export const invokeLLM = async ({
     if (output && output.trim().length > 0 && !output.includes('Internal Server Error')) {
       return output.trim();
     }
-  } catch (modelErr) {
+  } catch (postErr) {
+    console.warn('[LLM] POST inference fallback, trying GET endpoint:', postErr.message);
+  }
+
+  // Option 3: Fast GET inference fallback
+  try {
+    const queryParam = encodeURIComponent(userPrompt.slice(0, 1000));
+    const sysParam = encodeURIComponent(activeSystemPrompt.slice(0, 500));
+    const getUrl = `https://text.pollinations.ai/${queryParam}?model=openai&system=${sysParam}`;
+    const getRes = await axios.get(getUrl, {
+      timeout: 25000,
+      headers: { 'User-Agent': 'Cortex-AI-Platform/2.0' },
+    });
+    const output = typeof getRes.data === 'string' ? getRes.data : JSON.stringify(getRes.data);
+    if (output && output.trim().length > 0 && !output.includes('Internal Server Error')) {
+      return output.trim();
+    }
+  } catch (getErr) {
     // Expected when anonymous endpoint is saturated; agents will engage their intelligent dynamic synthesis
   }
 

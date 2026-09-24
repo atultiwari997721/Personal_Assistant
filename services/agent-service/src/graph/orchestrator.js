@@ -48,12 +48,12 @@ const codeNode = async (state) => {
 };
 
 const pdfNode = async (state) => {
-  const result = await runPdfAgent(state.userPrompt);
+  const result = await runPdfAgent(state.userPrompt, state.model);
   return { result };
 };
 
 const pptNode = async (state) => {
-  const result = await runPptAgent(state.userPrompt);
+  const result = await runPptAgent(state.userPrompt, state.model);
   return { result };
 };
 
@@ -141,8 +141,8 @@ export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model
     switch (agentMode) {
       case 'search': return await runSearchAgent(userPrompt, model);
       case 'code': return await runCodeAgent(userPrompt, model);
-      case 'pdf': return await runPdfAgent(userPrompt);
-      case 'ppt': return await runPptAgent(userPrompt);
+      case 'pdf': return await runPdfAgent(userPrompt, model);
+      case 'ppt': return await runPptAgent(userPrompt, model);
       case 'image': return await runImageAgent(userPrompt);
       default: return await runChatAgent(messages, userPrompt, model);
     }

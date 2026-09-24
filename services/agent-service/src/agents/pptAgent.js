@@ -144,13 +144,15 @@ export const buildCustomSlides = (userPrompt) => {
   ];
 };
 
-export const runPptAgent = async (userPrompt) => {
+export const runPptAgent = async (userPrompt, model = 'auto') => {
   try {
     const rawOutput = await invokeLLM({
       systemPrompt: `${PPT_SYSTEM_PROMPT}\n\nIMPORTANT: Return ONLY a valid JSON array of slide objects. Output format: [{"slide_number": 1, "title": "...", "bullet_points": ["..."], "speaker_notes": "..."}]`,
-      userPrompt: `Topic: "${userPrompt}"\nCreate a 5-slide presentation deck specifically tailored to this topic.`,
+      userPrompt: `Topic: "${userPrompt}"\nCreate a 5-to-6 slide presentation deck specifically tailored to this topic with compelling slide titles, actionable bullet points, and speaker notes.`,
       temperature: 0.3,
       jsonMode: true,
+      model,
+      timeout: 30000,
     });
 
     let parsedSlides = [];
@@ -170,7 +172,8 @@ export const runPptAgent = async (userPrompt) => {
       return {
         agent: 'ppt',
         slides: parsedSlides,
-        content: `### 📊 Presentation Slide Deck Generated (${parsedSlides.length} Slides)\n\nYour presentation for **"${userPrompt}"** has been dynamically generated! You can preview each slide interactively in the slide visualizer and click **Download .PPTX** to export the native Microsoft PowerPoint file.`,
+        content: `### 📊 Presentation Slide Deck Generated (${parsedSlides.length} Slides)\n> **Active AI Engine:** \`${model.toUpperCase()}\` | **Output Format:** Microsoft PowerPoint (.PPTX)\n\nYour presentation for **"${userPrompt}"** has been dynamically generated! You can preview each slide interactively in the slide visualizer and click **Download .PPTX** to export the native Microsoft PowerPoint file.`,
+        metadata: { model, timestamp: new Date() },
       };
     }
   } catch (err) {
@@ -181,6 +184,7 @@ export const runPptAgent = async (userPrompt) => {
   return {
     agent: 'ppt',
     slides: customSlides,
-    content: `### 📊 Presentation Slide Deck Generated (${customSlides.length} Slides)\n\nYour presentation for **"${userPrompt}"** is ready! You can preview the slides in the viewer and download the official **.pptx** file.`,
+    content: `### 📊 Presentation Slide Deck Generated (${customSlides.length} Slides)\n> **Active AI Engine:** \`${model.toUpperCase()}\` | **Output Format:** Microsoft PowerPoint (.PPTX)\n\nYour presentation for **"${userPrompt}"** is ready! You can preview the slides in the viewer and download the official **.pptx** file.`,
+    metadata: { model, timestamp: new Date() },
   };
 };

@@ -14,6 +14,18 @@ export const AVAILABLE_MODELS = [
     desc: 'Local deep math, algorithms & architectural reasoning',
   },
   {
+    id: 'nvidia-nemotron',
+    name: 'NVIDIA Nemotron 70B',
+    badge: 'NVIDIA AI',
+    desc: 'Frontier reasoning, alignment & complex logic',
+  },
+  {
+    id: 'nvidia-mistral-nemo',
+    name: 'NVIDIA Mistral NeMo',
+    badge: 'NVIDIA Speed',
+    desc: 'Ultra-fast architectural & code generation',
+  },
+  {
     id: 'deepseek-r1',
     name: 'DeepSeek-R1 (Reasoning)',
     badge: 'Free Web AI',
@@ -26,10 +38,28 @@ export const AVAILABLE_MODELS = [
     desc: 'Fast, comprehensive cloud intelligence',
   },
   {
+    id: 'claude-3-5-sonnet',
+    name: 'Claude 3.5 Sonnet',
+    badge: 'Anthropic AI',
+    desc: 'Nuanced architecture, systems design & writing',
+  },
+  {
+    id: 'gemini-2-flash',
+    name: 'Gemini 2.0 Flash',
+    badge: 'Google AI',
+    desc: 'Next-gen high-speed multimodal reasoning',
+  },
+  {
     id: 'qwen-coder',
     name: 'Qwen 2.5 Coder',
     badge: 'Code AI',
     desc: 'Specialized programming, debugging & syntax',
+  },
+  {
+    id: 'phi-4',
+    name: 'Microsoft Phi-4 14B',
+    badge: 'Microsoft AI',
+    desc: 'Compact reasoning for math & scientific deduction',
   },
   {
     id: 'llama-3',

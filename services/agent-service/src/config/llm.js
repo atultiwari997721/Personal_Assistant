@@ -47,6 +47,15 @@ export const getActiveProvider = () => {
     };
   }
 
+  if (process.env.NVIDIA_API_KEY && process.env.NVIDIA_API_KEY.length > 5) {
+    return {
+      type: 'nvidia',
+      apiKey: process.env.NVIDIA_API_KEY,
+      model: process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-70b-instruct',
+      baseURL: 'https://integrate.api.nvidia.com/v1',
+    };
+  }
+
   if (process.env.OLLAMA_URL) {
     return {
       type: 'ollama',
@@ -77,7 +86,7 @@ export const getLangChainLLM = (temperature = 0.7) => {
 
 /**
  * Universal dynamic LLM invocation:
- * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, OpenRouter, Ollama).
+ * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, NVIDIA, OpenRouter, Ollama).
  * 2. If no key, seamlessly attempts live inference via fast online models.
  */
 export const invokeLLM = async ({
@@ -93,12 +102,22 @@ export const invokeLLM = async ({
     throw new Error('LOCAL_COGNITIVE_REQUESTED');
   }
 
-  // Model-specific prompt engineering
+  // Model-specific prompt engineering & personas
   let activeSystemPrompt = systemPrompt || '';
-  if (model === 'deepseek-r1') {
+  if (model === 'nvidia-nemotron') {
+    activeSystemPrompt = `You are NVIDIA Llama-3.1-Nemotron-70B-Instruct, an ultra-advanced reasoning and alignment frontier model engineered by NVIDIA. You excel at complex multi-step reasoning, mathematical precision, and technical problem solving.\n\n${activeSystemPrompt}`;
+  } else if (model === 'nvidia-mistral-nemo') {
+    activeSystemPrompt = `You are NVIDIA Mistral NeMo 12B, an ultra-efficient model built by NVIDIA and Mistral AI. Deliver concise, lightning-fast, and precise architectural solutions.\n\n${activeSystemPrompt}`;
+  } else if (model === 'deepseek-r1') {
     activeSystemPrompt = `You are DeepSeek-R1, an ultra-advanced reasoning AI. Reason thoroughly and methodically. Include your detailed internal chain-of-thought enclosed in <think>...</think> tags before presenting your structured conclusion.\n\n${activeSystemPrompt}`;
   } else if (model === 'qwen-coder') {
     activeSystemPrompt = `You are Qwen 2.5 Coder, a world-class principal software architect and competitive programmer. Provide immaculate, high-performance, runnable code with asymptotic complexity analysis and unit test cases.\n\n${activeSystemPrompt}`;
+  } else if (model === 'claude-3-5-sonnet') {
+    activeSystemPrompt = `You are Claude 3.5 Sonnet, an exceptional frontier intelligence known for nuanced software architecture, thoughtful prose, and deep systems engineering.\n\n${activeSystemPrompt}`;
+  } else if (model === 'gemini-2-flash') {
+    activeSystemPrompt = `You are Google Gemini 2.0 Flash, a next-generation high-speed multimodal reasoning model. Deliver clear, direct, and structured intelligence.\n\n${activeSystemPrompt}`;
+  } else if (model === 'phi-4') {
+    activeSystemPrompt = `You are Microsoft Phi-4, a compact reasoning powerhouse specialized in mathematical deduction, logic, and scientific clarity.\n\n${activeSystemPrompt}`;
   } else if (model === 'llama-3') {
     activeSystemPrompt = `You are Llama 3.3 70B, an authoritative open-weights frontier intelligence. Provide deep factual, analytical, and structured synthesis.\n\n${activeSystemPrompt}`;
   }

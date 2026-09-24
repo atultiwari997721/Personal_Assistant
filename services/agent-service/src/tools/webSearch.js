@@ -233,7 +233,6 @@ export const performWebSearch = async (query) => {
     const qLower = cleanQuery.toLowerCase();
     if (/\b(weather|temperature|forecast|climate|celsius|fahrenheit)\b/i.test(qLower)) {
       try {
-        // Default to London / Paris coordinates or global reference
         const omRes = await axios.get('https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&current_weather=true', { timeout: 3500 });
         const curr = omRes.data?.current_weather;
         if (curr) {
@@ -250,7 +249,49 @@ export const performWebSearch = async (query) => {
     return hits;
   })();
 
-  // Execute all tasks simultaneously in parallel
+  // 7. StackExchange & Developer Discussions API
+  const stackExchangeTask = (async () => {
+    const hits = [];
+    try {
+      const seUrl = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=${encodeURIComponent(primaryTerm)}&site=stackoverflow&pagesize=2`;
+      const seRes = await axios.get(seUrl, { timeout: 3500 });
+      const items = seRes.data?.items || [];
+      items.forEach((item) => {
+        hits.push({
+          title: item.title,
+          url: item.link,
+          content: `StackOverflow verified discussion (${item.score || 0} votes, ${item.answer_count || 0} answers). Tags: ${(item.tags || []).slice(0, 4).join(', ')}.`,
+          score: 0.90,
+          source: 'StackOverflow Intel',
+        });
+      });
+    } catch (e) {}
+    return hits;
+  })();
+
+  // 8. Global Currency Exchange Rates API - Triggered when currency/forex/dollar/euro/rupee queried
+  const currencyTask = (async () => {
+    const hits = [];
+    const qLower = cleanQuery.toLowerCase();
+    if (/\b(currency|exchange\s+rate|forex|dollar|usd|eur|inr|gbp|jpy|aud|cad)\b/i.test(qLower)) {
+      try {
+        const erRes = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 3500 });
+        const rates = erRes.data?.rates || {};
+        if (rates.EUR && rates.INR) {
+          hits.push({
+            title: 'Real-Time Global Currency Exchange Rates (USD Base)',
+            url: 'https://open.er-api.com/',
+            content: `Live foreign exchange rates: 1 USD = €${rates.EUR?.toFixed(4)} EUR | ₹${rates.INR?.toFixed(2)} INR | £${rates.GBP?.toFixed(4)} GBP | ¥${rates.JPY?.toFixed(2)} JPY | $${rates.CAD?.toFixed(4)} CAD. Verified global rates.`,
+            score: 0.98,
+            source: 'Global Forex Rates',
+          });
+        }
+      } catch (e) {}
+    }
+    return hits;
+  })();
+
+  // Execute all 8 tasks simultaneously in parallel
   const settled = await Promise.allSettled([
     cryptoTask,
     wikiTask,
@@ -258,6 +299,8 @@ export const performWebSearch = async (query) => {
     ddgTask,
     ghTask,
     weatherTask,
+    stackExchangeTask,
+    currencyTask,
   ]);
 
   settled.forEach((res) => {

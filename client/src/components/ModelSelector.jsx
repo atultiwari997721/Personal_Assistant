@@ -1,14 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Sparkles, Brain, Cpu, Zap, Code, Bot, ChevronDown, Check } from 'lucide-react';
+import {
+  Sparkles,
+  Brain,
+  Cpu,
+  Zap,
+  Code,
+  Bot,
+  ChevronDown,
+  Check,
+  Shield,
+  Flame,
+  Compass,
+  Atom,
+} from 'lucide-react';
 import { AVAILABLE_MODELS, setSelectedModel } from '../store/agentSlice.js';
 
 const MODEL_ICONS = {
   'auto': Sparkles,
   'cortex-cognitive': Brain,
+  'nvidia-nemotron': Shield,
+  'nvidia-mistral-nemo': Flame,
   'deepseek-r1': Cpu,
   'gpt-4o-mini': Zap,
+  'claude-3-5-sonnet': Compass,
+  'gemini-2-flash': Atom,
   'qwen-coder': Code,
+  'phi-4': Cpu,
   'llama-3': Bot,
 };
 
@@ -48,9 +66,9 @@ export const ModelSelector = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 sm:left-0 mt-2 w-72 origin-top-left rounded-2xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-dark-750 shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-dark-800">
-            Available Free AI Models
+        <div className="absolute right-0 sm:left-0 mt-2 w-80 max-h-96 overflow-y-auto origin-top-left rounded-2xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-dark-750 shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-dark-800 sticky top-0 bg-white/95 dark:bg-dark-900/95 backdrop-blur-sm z-10">
+            Available AI Models & Engines (11)
           </div>
           {AVAILABLE_MODELS.map((model) => {
             const ModelIcon = MODEL_ICONS[model.id] || Sparkles;

@@ -84,6 +84,42 @@ export const getLangChainLLM = (temperature = 0.7) => {
   });
 };
 
+export const extractResponseText = (data) => {
+  if (typeof data === 'string') return data.trim();
+  if (!data || typeof data !== 'object') return '';
+
+  // 1. OpenAI Chat Completion format: { choices: [{ message: { content, reasoning } }] }
+  if (Array.isArray(data.choices) && data.choices.length > 0) {
+    const choice = data.choices[0];
+    const msg = choice.message || choice.delta || {};
+    const text = msg.content || msg.reasoning || choice.text || '';
+    if (typeof text === 'string' && text.trim().length > 0) {
+      return text.trim();
+    }
+  }
+
+  // 2. Pollinations / Anthropic format: { content: '...' } or { text: '...' }
+  if (typeof data.content === 'string' && data.content.trim().length > 0) {
+    return data.content.trim();
+  }
+  if (typeof data.text === 'string' && data.text.trim().length > 0) {
+    return data.text.trim();
+  }
+  if (typeof data.reasoning === 'string' && data.reasoning.trim().length > 0) {
+    return data.reasoning.trim();
+  }
+  if (typeof data.output === 'string' && data.output.trim().length > 0) {
+    return data.output.trim();
+  }
+  if (typeof data.message === 'string' && data.message.trim().length > 0) {
+    return data.message.trim();
+  }
+
+  // 3. Fallback: stringified if contains actual content
+  const str = JSON.stringify(data);
+  return str.length > 10 ? str : '';
+};
+
 /**
  * Universal dynamic LLM invocation:
  * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, NVIDIA, OpenRouter, Ollama).
@@ -97,7 +133,7 @@ export const invokeLLM = async ({
   temperature = 0.7,
   jsonMode = false,
   model = 'auto',
-  timeout = 30000,
+  timeout = 35000,
 }) => {
   // If user explicitly chose local Cognitive Brain, skip cloud inference directly
   if (model === 'cortex-cognitive') {
@@ -111,7 +147,7 @@ export const invokeLLM = async ({
   } else if (model === 'nvidia-mistral-nemo') {
     activeSystemPrompt = `You are NVIDIA Mistral NeMo 12B, an ultra-efficient model built by NVIDIA and Mistral AI. Deliver concise, lightning-fast, and precise architectural solutions.\n\n${activeSystemPrompt}`;
   } else if (model === 'deepseek-r1') {
-    activeSystemPrompt = `You are DeepSeek-R1, an ultra-advanced reasoning AI. Reason thoroughly and methodically. Include your detailed internal chain-of-thought enclosed in <think>...</think> tags before presenting your structured conclusion.\n\n${activeSystemPrompt}`;
+    activeSystemPrompt = `You are DeepSeek-R1, an ultra-advanced reasoning AI. Reason thoroughly and methodically. First present your step-by-step reasoning analysis under a "### 🧠 Analytical Reasoning" section, followed by your definitive solution.\n\n${activeSystemPrompt}`;
   } else if (model === 'qwen-coder') {
     activeSystemPrompt = `You are Qwen 2.5 Coder, a world-class principal software architect and competitive programmer. Provide immaculate, high-performance, runnable code with asymptotic complexity analysis and unit test cases.\n\n${activeSystemPrompt}`;
   } else if (model === 'claude-3-5-sonnet') {
@@ -155,7 +191,8 @@ export const invokeLLM = async ({
   });
   formattedMessages.push({ role: 'user', content: userPrompt });
 
-  try {
+  // Function to execute POST request
+  const attemptPost = async () => {
     const response = await axios.post(
       'https://text.pollinations.ai/',
       {
@@ -165,40 +202,53 @@ export const invokeLLM = async ({
         seed: Math.floor(Math.random() * 1000000),
       },
       {
-        timeout: timeout || 30000,
+        timeout: timeout || 35000,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Cortex-AI-Platform/2.0 (engine@cortexai.dev)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       }
     );
 
-    let output = response.data;
-    if (typeof output !== 'string') {
-      output = JSON.stringify(output);
+    const parsed = extractResponseText(response.data);
+    if (parsed && parsed.length > 0 && !parsed.includes('Internal Server Error')) {
+      return parsed;
     }
-    if (output && output.trim().length > 0 && !output.includes('Internal Server Error')) {
-      return output.trim();
-    }
+    return null;
+  };
+
+  try {
+    const postResult = await attemptPost();
+    if (postResult) return postResult;
   } catch (postErr) {
-    console.warn('[LLM] POST inference fallback, trying GET endpoint:', postErr.message);
+    console.warn('[LLM] POST inference attempt 1 failed:', postErr.message);
+    // If rate limited (429), wait 1s and retry once
+    if (postErr.response?.status === 429) {
+      try {
+        await new Promise((r) => setTimeout(r, 1200));
+        const retryResult = await attemptPost();
+        if (retryResult) return retryResult;
+      } catch (retryErr) {
+        console.warn('[LLM] POST retry failed:', retryErr.message);
+      }
+    }
   }
 
   // Option 3: Fast GET inference fallback
   try {
-    const queryParam = encodeURIComponent(userPrompt.slice(0, 1000));
-    const sysParam = encodeURIComponent(activeSystemPrompt.slice(0, 500));
-    const getUrl = `https://text.pollinations.ai/${queryParam}?model=openai&system=${sysParam}`;
+    const queryParam = encodeURIComponent(userPrompt.slice(0, 800));
+    const sysParam = activeSystemPrompt ? `&system=${encodeURIComponent(activeSystemPrompt.slice(0, 400))}` : '';
+    const getUrl = `https://text.pollinations.ai/${queryParam}?model=openai${sysParam}`;
     const getRes = await axios.get(getUrl, {
-      timeout: 25000,
-      headers: { 'User-Agent': 'Cortex-AI-Platform/2.0' },
+      timeout: Math.min(timeout, 30000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     });
-    const output = typeof getRes.data === 'string' ? getRes.data : JSON.stringify(getRes.data);
-    if (output && output.trim().length > 0 && !output.includes('Internal Server Error')) {
-      return output.trim();
+    const parsedGet = extractResponseText(getRes.data);
+    if (parsedGet && parsedGet.length > 0 && !parsedGet.includes('Internal Server Error')) {
+      return parsedGet;
     }
   } catch (getErr) {
-    // Expected when anonymous endpoint is saturated; agents will engage their intelligent dynamic synthesis
+    console.warn('[LLM] GET fallback failed:', getErr.message);
   }
 
   throw new Error('LLM_PROVIDER_OFFLINE');

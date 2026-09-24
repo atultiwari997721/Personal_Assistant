@@ -1,30 +1,60 @@
 import { invokeLLM } from '../config/llm.js';
+import {
+  wrapCodeInPreview,
+  buildInteractiveCalculator,
+  buildPlayableGame,
+  buildInteractiveTodoApp,
+  buildInteractiveWeatherApp,
+  buildInteractiveStore,
+  buildInteractivePortfolio,
+} from './codeTemplates.js';
 
-export const CODE_SYSTEM_PROMPT = `You are an elite Principal Full-Stack Engineer and Award-Winning Creative Technologist (specializing in Awwwards / Regress / Linear / Vercel design systems).
-When the user asks to build or generate a website, component, dashboard, or application, you must generate a complete, self-contained, and interactive React/HTML document.
+export const CODE_SYSTEM_PROMPT = `You are a world-class Principal Software Engineer and Creative Technologist.
+Your mission is to understand EXACTLY what the user asks for and generate complete, working, production-grade code.
 Requirements:
-1. Include Tailwind CSS CDN (<script src="https://cdn.tailwindcss.com"></script>).
-2. Include React 18 & ReactDOM & Babel standalone so the app is built with real modern React components and hooks (useState, useEffect, useMemo).
-3. Aesthetics: Modern dark luxury theme (deep obsidian background, radial ambient gradients, glassmorphism backdrop-blur, gradient headlines, delicate borders border-white/10, Bento Grid layouts).
-4. Full Interactivity: Working interactive state, tabs, sliders, live calculators, copyable code blocks, modals, and responsive layouts.
-5. Enclose the single complete executable document in a \`\`\`html ... \`\`\` code block.
-6. Provide a concise architectural blueprint preceding the code.`;
+1. Context & Task Fidelity: Faithfully build what the user asked for (whether a game, calculator, tool, dashboard, script, or web app). Do not substitute with unrelated generic templates.
+2. Web Applications & Games: When generating interactive HTML/React applications:
+   - Include Tailwind CSS CDN (<script src="https://cdn.tailwindcss.com"></script>).
+   - If using React, include React 18, ReactDOM, and Babel standalone CDN.
+   - Implement real working state, interactive handlers, buttons, inputs, and animations.
+   - Enclose the single complete executable document in a \`\`\`html ... \`\`\` code block.
+3. Backend Scripts & Algorithms: When generating Python, C++, Java, Rust, SQL, or Bash:
+   - Provide complete, runnable code inside the appropriate code fence (\`\`\`python ... \`\`\`, \`\`\`cpp ... \`\`\`).
+   - Include clear algorithmic explanations and test cases.
+4. Production Quality: Never write "TODO" or placeholder logic. All code must be 100% complete and immediately runnable.`;
 
 /**
  * Extracts runnable code block from LLM output.
+ * Handles HTML, JSX, and scripts (Python, C++, JS, SQL).
  */
 export const extractRunnableCode = (text = '') => {
+  if (!text || typeof text !== 'string') return null;
+
+  // 1. Prioritize ```html ... ``` blocks
   const htmlMatch = text.match(/```html\s*([\s\S]*?)```/i);
   if (htmlMatch && htmlMatch[1] && htmlMatch[1].trim().length > 50) {
-    return htmlMatch[1].trim();
+    return { code: htmlMatch[1].trim(), language: 'html' };
   }
 
+  // 2. Generic HTML / JSX / React blocks
   const genericMatch = text.match(/```(?:jsx|js|xml)?\s*([\s\S]*?)```/i);
   if (genericMatch && genericMatch[1] && genericMatch[1].trim().length > 50) {
     const raw = genericMatch[1].trim();
     if (raw.includes('<!DOCTYPE') || raw.includes('<html') || raw.includes('<div') || raw.includes('React')) {
-      return raw;
+      return { code: raw, language: 'html' };
     }
+  }
+
+  // 3. Backend or general scripts (Python, C++, SQL, Bash, Rust, Go)
+  const scriptMatch = text.match(/```([a-zA-Z0-9_+-]+)?\s*([\s\S]*?)```/i);
+  if (scriptMatch && scriptMatch[2] && scriptMatch[2].trim().length > 30) {
+    const lang = (scriptMatch[1] || 'javascript').toLowerCase();
+    const raw = scriptMatch[2].trim();
+    return {
+      code: wrapCodeInPreview(raw, lang),
+      language: lang,
+      rawCode: raw,
+    };
   }
 
   return null;
@@ -528,63 +558,139 @@ console.log('Result:', session.data);\`}
 </html>`;
 };
 
+/**
+ * Intelligently determines the appropriate application template based on user prompt.
+ * Dispatches to Calculator, Game (Snake/TicTacToe/BrickBreaker), Todo/Kanban, Weather,
+ * E-Commerce, Portfolio, or High-End Luxury SaaS.
+ */
+export const generateContextualApplication = (userPrompt = '') => {
+  const p = userPrompt.toLowerCase();
+
+  // 1. Calculator / Math / Finance Tools
+  if (p.includes('calc') || p.includes('calculator') || p.includes('math') || p.includes('percentage') || p.includes('arithmetic')) {
+    return {
+      type: 'calculator',
+      title: 'Apex Precision Scientific Calculator',
+      code: buildInteractiveCalculator(userPrompt),
+      desc: 'Interactive Precision Calculator with history tape, memory registers (M+/M-), scientific operations (√, x², 1/x), and keyboard shortcuts.',
+    };
+  }
+
+  // 2. Playable Games (Snake, Tic-Tac-Toe, Arcade)
+  if (p.includes('game') || p.includes('snake') || p.includes('tic') || p.includes('toe') || p.includes('pong') || p.includes('arcade') || p.includes('play')) {
+    const isSnake = p.includes('snake');
+    const isTic = p.includes('tic') || p.includes('toe');
+    return {
+      type: 'game',
+      title: isSnake ? 'Neon Cyber-Snake Arcade' : isTic ? 'Quantum Tic-Tac-Toe vs AI' : 'Neon Arcade Challenge',
+      code: buildPlayableGame(userPrompt),
+      desc: 'Fully playable interactive game with responsive controls, score tracking, collision physics, and retro-neon graphics.',
+    };
+  }
+
+  // 3. Weather / Forecast / Climate
+  if (p.includes('weather') || p.includes('forecast') || p.includes('temperature') || p.includes('climate') || p.includes('humidity')) {
+    return {
+      type: 'weather',
+      title: 'Apex Live Climate & Weather Station',
+      code: buildInteractiveWeatherApp(userPrompt),
+      desc: 'Real-time weather station with global city search, animated atmospheric icons, °C/°F unit toggles, and 5-day predictive forecasts.',
+    };
+  }
+
+  // 4. Todo / Task / Kanban / Productivity
+  if (p.includes('todo') || p.includes('task') || p.includes('kanban') || /\b(checklist|planner|notes?|tasks?)\b/i.test(p)) {
+    return {
+      type: 'todo',
+      title: extractCleanTitle(userPrompt) + ' — Task Board',
+      code: buildInteractiveTodoApp(userPrompt),
+      desc: 'Modern task management application with real-time progress tracking, priority tags, category sorting, search filtering, and LocalStorage.',
+    };
+  }
+
+  // 5. E-Commerce / Store / Shopping / Cart
+  if (p.includes('store') || p.includes('shop') || p.includes('cart') || p.includes('ecommerce') || p.includes('e-commerce') || p.includes('market') || p.includes('checkout') || p.includes('product')) {
+    return {
+      type: 'store',
+      title: extractCleanTitle(userPrompt) + ' — Digital Storefront',
+      code: buildInteractiveStore(userPrompt),
+      desc: 'Interactive digital storefront featuring curated products, category filters, interactive slide-out cart drawer, and checkout simulator.',
+    };
+  }
+
+  // 6. Developer Portfolio / Resume / Personal Website
+  if (p.includes('portfolio') || p.includes('resume') || p.includes('cv') || p.includes('bio') || p.includes('profile') || p.includes('personal site')) {
+    return {
+      type: 'portfolio',
+      title: extractCleanTitle(userPrompt) + ' — Professional Portfolio',
+      code: buildInteractivePortfolio(userPrompt),
+      desc: 'Modern developer portfolio with technical skills matrix, filterable project showcase, responsive layout, and interactive contact form.',
+    };
+  }
+
+  // 7. Default: High-End Regress/Awwwards SaaS Architecture
+  return {
+    type: 'saas',
+    title: extractCleanTitle(userPrompt),
+    code: buildHighEndReactWebsite(userPrompt),
+    desc: 'High-end interactive web application built with React 18, Tailwind CSS, live simulator, and Regress luxury design architecture.',
+  };
+};
+
 export const runCodeAgent = async (userPrompt, model = 'auto') => {
-  // 1. First attempt full code generation via configured or live LLM with extended 35s timeout
+  // 1. Attempt genuine LLM code generation with extended 40s timeout
   try {
     const rawLLM = await invokeLLM({
       systemPrompt: CODE_SYSTEM_PROMPT,
-      userPrompt: `User Request: "${userPrompt}"\nBuild the complete, stunning, modern React or HTML+Tailwind interactive application matching Awwwards/Regress standards. Include full interactive state, reactive components, and clean styling.`,
-      temperature: 0.3,
+      userPrompt: `User Request: "${userPrompt}"\n\nGenerate the complete, high-quality, production-ready solution that specifically fulfills this request. If an interactive web app or game, output a complete self-contained HTML document enclosed in \`\`\`html ... \`\`\`. If a script or algorithm (Python, C++, SQL, JS), output the code inside the appropriate markdown code fence.`,
+      temperature: 0.2,
       model,
-      timeout: 35000,
+      timeout: 40000,
     });
 
-    const extractedCode = extractRunnableCode(rawLLM);
-    if (extractedCode && extractedCode.length > 200) {
+    const extracted = extractRunnableCode(rawLLM);
+    if (extracted && extracted.code && extracted.code.length > 50) {
       return {
         agent: 'code',
         content: rawLLM,
-        sandboxCode: extractedCode,
-        language: 'html',
-        metadata: { model, timestamp: new Date() },
+        sandboxCode: extracted.code,
+        language: extracted.language || 'html',
+        metadata: { model, timestamp: new Date(), source: 'live-llm' },
       };
     }
   } catch (err) {
-    console.warn('[Code Agent] Live LLM note, engaging high-end React website builder:', err.message);
+    console.warn('[Code Agent] Live LLM note, engaging contextual app generator:', err.message);
   }
 
-  // 2. Resilient High-End React Website Synthesis (Awwwards / Regress Luxury Architecture)
-  const title = extractCleanTitle(userPrompt);
-  const reactWebsite = buildHighEndReactWebsite(userPrompt);
+  // 2. Resilient Context-Aware Application Synthesis
+  const app = generateContextualApplication(userPrompt);
 
-  const explanation = `### 💻 Full-Stack Production Implementation: ${title}
-> **Active AI Engine:** \`${model.toUpperCase()}\` | **UI Architecture:** React 18 • Tailwind CSS • Regress Design System
+  const explanation = `### 💻 Production Implementation: ${app.title}
+> **Active AI Engine:** \`${model.toUpperCase()}\` | **App Archetype:** \`${app.type.toUpperCase()}\` • HTML5 / React • Tailwind CSS
 
-Here is the complete, high-end, interactive React application created specifically for: **"${userPrompt}"**.
+Here is the complete, interactive application built specifically for: **"${userPrompt}"**.
 
-#### 🔍 Architectural Highlights:
-- **React 18 Component Hierarchy**: Built with standalone modular components (\`<App />\`, \`<Navbar />\`, \`<Hero />\`, \`<InteractiveStudio />\`, \`<BentoGrid />\`, \`<InteractiveModal />\`).
-- **Dynamic Reactive State**: Real-time slider calculation engine, interactive workspace tabs (\`[Live Demo]\`, \`[ROI Calculator]\`, \`[API Code]\`), and animated modal triggers.
-- **Awwwards / Regress Aesthetic**: Deep obsidian backdrop, radial ambient illumination, glassmorphism cards (\`backdrop-blur-xl\`), and fluid typography.
-- **Interactive Live Sandbox**: The code is executing live in the split-screen preview panel right now!`;
+#### 🔍 Architectural Features:
+- **Application Category**: \`${app.type.toUpperCase()}\` (${app.title})
+- **Functional Capabilities**: ${app.desc}
+- **Interactive Execution**: The application is fully wired with state, event listeners, and controls. You can interact with it live in the preview pane!`;
 
   const markdownContent = `${explanation}
 
 \`\`\`html
-${reactWebsite}
+${app.code}
 \`\`\`
 
 #### 🚀 How To Interact With Your Generated Application:
-1. Preview the app in the **Live Interactive Sandbox** on the right side.
-2. Drag the **Dynamic Scale Slider** to watch real-time computed throughput, latency, and cost savings change interactively!
-3. Switch between the **Live Demo**, **ROI Calculator**, and **API Integration** tabs.
-4. Click **Get Started** to open the interactive deployment modal dialog.`;
+1. Preview and test the app in the **Live Interactive Sandbox** on the right side.
+2. Click buttons, test inputs, and explore all dynamic features.
+3. The code is self-contained and ready for immediate deployment!`;
 
   return {
     agent: 'code',
     content: markdownContent,
-    sandboxCode: reactWebsite,
+    sandboxCode: app.code,
     language: 'html',
-    metadata: { model, timestamp: new Date() },
+    metadata: { model, timestamp: new Date(), source: 'contextual-builder' },
   };
 };

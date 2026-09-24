@@ -253,3 +253,48 @@ npm run dev
    - **Cache / Sessions:** AWS ElastiCache for Redis (Multi-AZ).
    - **Vector Database:** Qdrant Cloud or self-hosted Qdrant on EC2 with EBS gp3 storage.
    - **SSL/TLS:** AWS Certificate Manager (ACM) with Route 53 domain mapping.
+
+---
+
+## ⚡ 7. Vercel Deployment Guide (Monorepo & Serverless)
+
+Cortex AI is pre-configured for seamless 1-click deployment on **Vercel** with full SPA frontend routing and serverless `/api` microservice execution.
+
+### Architecture on Vercel:
+- **Frontend:** React 18 SPA built via `client/dist` and served across Vercel's global Edge CDN.
+- **Backend:** Express API running as a unified Vercel Serverless Function via [`api/index.js`](file:///k:/Projects/Personal_Assistant/api/index.js).
+- **Zero CORS Issues:** Both frontend and backend share the exact same domain; requests to `/api/*` route seamlessly to the serverless function, while page refreshes route to `/index.html`.
+- **Fault-Tolerant Resilience:** Built-in in-memory fallbacks for Redis sessions, vector search, and user credit store ensure the app runs immediately even before provisioning external databases.
+
+### Step-by-Step Vercel Deployment:
+
+1. **Push your code to GitHub:**
+   Ensure the latest code is on branch `main` at `https://github.com/atultiwari997721/Personal_Assistant.git`.
+
+2. **Import Repository in Vercel:**
+   - Go to [vercel.com/dashboard](https://vercel.com/dashboard) and click **"Add New..."** $\rightarrow$ **"Project"**.
+   - Select your GitHub repository: `atultiwari997721/Personal_Assistant`.
+
+3. **Configure Project Settings:**
+   - **Framework Preset:** `Other` (or `Vite`)
+   - **Root Directory:** `./` (Leave as root so `vercel.json` and `api/` are picked up)
+   - **Build Command:** `npm run build` (or `cd client && npm install && npm run build`)
+   - **Output Directory:** `client/dist`
+
+4. **Add Environment Variables (in Vercel Project Settings $\rightarrow$ Environment Variables):**
+   | Variable | Description | Example / Note |
+   | :--- | :--- | :--- |
+   | `OPENAI_API_KEY` | OpenAI API Key for GPT-4o / embeddings | `sk-proj-...` |
+   | `GROQ_API_KEY` | (Optional) Groq API Key for fast inference | `gsk_...` |
+   | `TAVILY_API_KEY` | (Optional) Tavily Search for live web RAG | `tvly-...` |
+   | `JWT_SECRET` | Secret key for JWT session tokens | `super_secret_jwt_cortex_2026` |
+   | `RAZORPAY_KEY_ID` | Razorpay Key ID for payments | `rzp_test_...` |
+   | `RAZORPAY_KEY_SECRET` | Razorpay Secret for payments | `...` |
+   | `MONGODB_URI` | (Optional) MongoDB Atlas connection string | `mongodb+srv://...` (Fallback active if omitted) |
+   | `REDIS_URL` | (Optional) Upstash Redis connection string | `rediss://...` (Fallback active if omitted) |
+   | `QDRANT_URL` | (Optional) Qdrant Cloud Cluster URL | `https://...qdrant.tech:6333` |
+
+5. **Click Deploy:**
+   - Vercel will install dependencies, build the React frontend into `client/dist`, bundle the `api/index.js` serverless function, and provide you with a live production URL (e.g., `https://cortex-ai-platform.vercel.app`).
+   - Test the live backend: `https://your-vercel-domain.vercel.app/api/health`
+   - Test the live frontend: `https://your-vercel-domain.vercel.app/`

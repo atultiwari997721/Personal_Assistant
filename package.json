@@ -2,8 +2,10 @@
   "name": "cortex-ai-platform",
   "version": "1.0.0",
   "type": "module",
-  "description": "Production-Ready Multi-Agent AI SaaS Platform (MERN, Microservices, LangGraph, Qdrant, Redis, Docker, AWS)",
+  "description": "Production-Ready Multi-Agent AI SaaS Platform (MERN, Microservices, LangGraph, Qdrant, Redis, Docker, AWS, Vercel)",
   "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "vercel-build": "cd client && npm install && npm run build",
     "start": "node start-dev.js",
     "dev": "node start-dev.js",
     "install:all": "npm install && cd api-gateway && npm install && cd ../services/auth-service && npm install && cd ../payment-service && npm install && cd ../agent-service && npm install && cd ../../client && npm install",
@@ -16,6 +18,23 @@
     "dev:agent": "cd services/agent-service && npm run dev",
     "dev:client": "cd client && npm run dev"
   },
+  "dependencies": {
+    "@langchain/core": "^0.2.14",
+    "@langchain/langgraph": "^0.0.28",
+    "@langchain/openai": "^0.2.1",
+    "@qdrant/js-client-rest": "^1.9.0",
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "pdfkit": "^0.15.0",
+    "pptxgenjs": "^3.12.0",
+    "razorpay": "^2.9.4"
+  },
   "keywords": [
     "multi-agent",
     "ai-agent",
@@ -25,7 +44,8 @@
     "microservices",
     "mern",
     "razorpay",
-    "saas"
+    "saas",
+    "vercel"
   ],
   "author": "Cortex Engineering",
   "license": "MIT"

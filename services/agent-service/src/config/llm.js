@@ -86,13 +86,29 @@ export const invokeLLM = async ({
   messages = [],
   temperature = 0.7,
   jsonMode = false,
+  model = 'auto',
 }) => {
+  // If user explicitly chose local Cognitive Brain, skip cloud inference directly
+  if (model === 'cortex-cognitive') {
+    throw new Error('LOCAL_COGNITIVE_REQUESTED');
+  }
+
+  // Model-specific prompt engineering
+  let activeSystemPrompt = systemPrompt || '';
+  if (model === 'deepseek-r1') {
+    activeSystemPrompt = `You are DeepSeek-R1, an ultra-advanced reasoning AI. Reason thoroughly and methodically. Include your detailed internal chain-of-thought enclosed in <think>...</think> tags before presenting your structured conclusion.\n\n${activeSystemPrompt}`;
+  } else if (model === 'qwen-coder') {
+    activeSystemPrompt = `You are Qwen 2.5 Coder, a world-class principal software architect and competitive programmer. Provide immaculate, high-performance, runnable code with asymptotic complexity analysis and unit test cases.\n\n${activeSystemPrompt}`;
+  } else if (model === 'llama-3') {
+    activeSystemPrompt = `You are Llama 3.3 70B, an authoritative open-weights frontier intelligence. Provide deep factual, analytical, and structured synthesis.\n\n${activeSystemPrompt}`;
+  }
+
   // Option 1: Configured API Key via LangChain
   if (hasValidLLMKey()) {
     try {
       const llm = getLangChainLLM(temperature);
       const formatted = [];
-      if (systemPrompt) formatted.push(new SystemMessage(systemPrompt));
+      if (activeSystemPrompt) formatted.push(new SystemMessage(activeSystemPrompt));
       (messages || []).forEach((m) => {
         if (m.sender === 'user' || m.role === 'user') {
           formatted.push(new HumanMessage(m.content || m.text));
@@ -111,7 +127,7 @@ export const invokeLLM = async ({
 
   // Option 2: Live fast inference
   const formattedMessages = [];
-  if (systemPrompt) formattedMessages.push({ role: 'system', content: systemPrompt });
+  if (activeSystemPrompt) formattedMessages.push({ role: 'system', content: activeSystemPrompt });
   (messages || []).slice(-4).forEach((m) => {
     const role = m.sender === 'user' || m.role === 'user' ? 'user' : 'assistant';
     formattedMessages.push({ role, content: m.content || m.text || '' });
@@ -128,7 +144,7 @@ export const invokeLLM = async ({
         seed: Math.floor(Math.random() * 1000000),
       },
       {
-        timeout: 12000,
+        timeout: 10000,
         headers: { 'Content-Type': 'application/json' },
       }
     );

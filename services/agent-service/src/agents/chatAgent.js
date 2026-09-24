@@ -18,7 +18,7 @@ When answering questions:
 4. When math is requested, show clear arithmetic steps and formulas.
 5. Format your answers elegantly using GitHub-flavored Markdown.`;
 
-export const runChatAgent = async (messages, userPrompt) => {
+export const runChatAgent = async (messages, userPrompt, model = 'auto') => {
   // 1. Attempt Frontier / Cloud LLM execution first
   try {
     const content = await invokeLLM({
@@ -26,13 +26,14 @@ export const runChatAgent = async (messages, userPrompt) => {
       userPrompt,
       messages,
       temperature: 0.6,
+      model,
     });
 
     if (content && content.length > 20 && !content.includes('Internal Server Error')) {
       return {
         agent: 'chat',
         content,
-        metadata: { timestamp: new Date(), engine: 'frontier-llm' },
+        metadata: { timestamp: new Date(), engine: `frontier-llm (${model})` },
       };
     }
   } catch (err) {

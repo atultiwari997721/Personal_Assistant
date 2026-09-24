@@ -33,17 +33,17 @@ const routerNode = async (state) => {
 
 // 6 Dedicated Agent Execution Nodes
 const chatNode = async (state) => {
-  const result = await runChatAgent(state.messages, state.userPrompt);
+  const result = await runChatAgent(state.messages, state.userPrompt, state.model);
   return { result };
 };
 
 const searchNode = async (state) => {
-  const result = await runSearchAgent(state.userPrompt);
+  const result = await runSearchAgent(state.userPrompt, state.model);
   return { result };
 };
 
 const codeNode = async (state) => {
-  const result = await runCodeAgent(state.userPrompt);
+  const result = await runCodeAgent(state.userPrompt, state.model);
   return { result };
 };
 
@@ -91,6 +91,7 @@ export const buildOrchestratorGraph = () => {
     channels: {
       userPrompt: { value: (x, y) => y ?? x, default: () => '' },
       agentMode: { value: (x, y) => y ?? x, default: () => 'chat' },
+      model: { value: (x, y) => y ?? x, default: () => 'auto' },
       messages: { value: (x, y) => y ?? x, default: () => [] },
       result: { value: (x, y) => y ?? x, default: () => null },
     },
@@ -124,12 +125,13 @@ export const buildOrchestratorGraph = () => {
 };
 
 // Execution helper
-export const executeAgentGraph = async ({ userPrompt, agentMode, messages }) => {
+export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto' }) => {
   try {
     const graph = buildOrchestratorGraph();
     const finalState = await graph.invoke({
       userPrompt,
       agentMode,
+      model,
       messages: messages || [],
     });
     return finalState.result;
@@ -137,12 +139,12 @@ export const executeAgentGraph = async ({ userPrompt, agentMode, messages }) => 
     console.error('[LangGraph Orchestrator] Execution fallback triggered:', err.message);
     // Direct node invocation safety fallback
     switch (agentMode) {
-      case 'search': return await runSearchAgent(userPrompt);
-      case 'code': return await runCodeAgent(userPrompt);
+      case 'search': return await runSearchAgent(userPrompt, model);
+      case 'code': return await runCodeAgent(userPrompt, model);
       case 'pdf': return await runPdfAgent(userPrompt);
       case 'ppt': return await runPptAgent(userPrompt);
       case 'image': return await runImageAgent(userPrompt);
-      default: return await runChatAgent(messages, userPrompt);
+      default: return await runChatAgent(messages, userPrompt, model);
     }
   }
 };

@@ -50,7 +50,7 @@ export const AGENT_SPECS = [
 // POST /api/agents/execute
 export const runAgentTask = async (req, res) => {
   try {
-    const { prompt, agentMode = 'chat', messages = [] } = req.body;
+    const { prompt, agentMode = 'chat', messages = [], model = 'auto' } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Prompt is required.' });
@@ -59,6 +59,7 @@ export const runAgentTask = async (req, res) => {
     const result = await executeAgentGraph({
       userPrompt: prompt,
       agentMode,
+      model,
       messages,
     });
 

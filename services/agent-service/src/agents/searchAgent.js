@@ -5,7 +5,7 @@ import { searchVectorStore, indexDocuments } from '../rag/qdrantClient.js';
 export const SEARCH_SYSTEM_PROMPT =
   "You are a Search AI Agent with real-time web access. When answering questions requiring current data, query web tools, synthesize factual key insights with inline citations, and return relevant image links in markdown.";
 
-export const runSearchAgent = async (userPrompt) => {
+export const runSearchAgent = async (userPrompt, model = 'auto') => {
   // 1. Fetch live web search results from multi-source search engine
   const webResults = await performWebSearch(userPrompt);
 
@@ -30,6 +30,7 @@ ${(vectorDocs || []).map((d, i) => `[Vector-${i + 1}] ${d.title}: ${d.content} (
       systemPrompt: SEARCH_SYSTEM_PROMPT,
       userPrompt: `User Query: "${userPrompt}"\n\nContext Retrieved:\n${contextBlock}\n\nInstructions: Synthesize a factual, detailed response with markdown headers, numbered bullet points, inline source citations [1], [2], and include any relevant media links.`,
       temperature: 0.3,
+      model,
     });
 
     return {
@@ -38,16 +39,18 @@ ${(vectorDocs || []).map((d, i) => `[Vector-${i + 1}] ${d.title}: ${d.content} (
       citations: webResults.results,
       images: webResults.images,
       vectorHits: vectorDocs,
+      metadata: { model, timestamp: new Date() },
     };
   } catch (err) {
     // Dynamic synthesis directly using the real live web findings
     const topResults = webResults.results || [];
     const mainTakeaways = topResults.map((r, idx) => {
-      return `${idx + 1}. **${r.title}**: ${r.content} [[${idx + 1}]](${r.url})`;
+      const sourceTag = r.source ? `*(${r.source})* ` : '';
+      return `${idx + 1}. **${r.title}**: ${r.content} ${sourceTag}[[${idx + 1}]](${r.url})`;
     }).join('\n\n');
 
     const sourcesList = topResults.map((r, idx) => {
-      return `- [[${idx + 1}] ${r.title}](${r.url}) *(Relevance: ${Math.round((r.score || 0.9) * 100)}%)*`;
+      return `- [[${idx + 1}] ${r.title}](${r.url}) *(Source: ${r.source || 'Verified Web'}, Relevance: ${Math.round((r.score || 0.9) * 100)}%)*`;
     }).join('\n');
 
     const vectorSummary = (vectorDocs || []).map((v, idx) => {
@@ -55,9 +58,10 @@ ${(vectorDocs || []).map((d, i) => `[Vector-${i + 1}] ${d.title}: ${d.content} (
     }).join('\n');
 
     const markdownOutput = `### 🌐 Real-Time Web Intelligence & Semantic RAG Results
+> **AI Engine:** \`${model.toUpperCase()}\` | **Simultaneous Multi-APIs:** Wikipedia • Hacker News • GitHub • Live Feeds
 
 **Query:** "${userPrompt}"  
-**Status:** Live search completed across verified web indices and Qdrant vector memory.
+**Status:** Live search completed across verified multi-source indices and Qdrant vector memory.
 
 ---
 

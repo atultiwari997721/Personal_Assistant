@@ -1008,13 +1008,14 @@ export const buildStructuralWebsite = (userPrompt) => {
   return generateAdaptiveCustomApp(title, userPrompt);
 };
 
-export const runCodeAgent = async (userPrompt) => {
+export const runCodeAgent = async (userPrompt, model = 'auto') => {
   // 1. First attempt full code generation via configured or live LLM
   try {
     const rawLLM = await invokeLLM({
       systemPrompt: CODE_SYSTEM_PROMPT,
       userPrompt: `User Request: "${userPrompt}"\nBuild the complete, beautiful, working HTML application with Tailwind CSS and working JavaScript.`,
       temperature: 0.3,
+      model,
     });
 
     const extractedCode = extractRunnableCode(rawLLM);

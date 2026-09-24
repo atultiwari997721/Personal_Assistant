@@ -19,7 +19,7 @@ import api from './services/api.js';
 
 export const App = () => {
   const dispatch = useDispatch();
-  const { activeAgent, messages, isLoading, activeArtifact } = useSelector(
+  const { activeAgent, selectedModel, messages, isLoading, activeArtifact } = useSelector(
     (state) => state.agent
   );
   const { user } = useSelector((state) => state.auth);
@@ -75,6 +75,7 @@ export const App = () => {
       const response = await api.post('/agents/execute', {
         prompt,
         agentMode: activeAgent,
+        model: selectedModel || 'auto',
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
       });
 

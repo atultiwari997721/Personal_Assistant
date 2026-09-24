@@ -105,7 +105,7 @@ app.post('/api/agents/export-pdf', exportPdf);
 app.post('/api/agents/execute', authenticateToken, async (req, res) => {
   try {
     const uid = req.user?.uid || 'demo-user-123';
-    const { prompt, agentMode = 'chat', messages = [] } = req.body;
+    const { prompt, agentMode = 'chat', messages = [], model = 'auto' } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Prompt is required.' });
@@ -132,6 +132,7 @@ app.post('/api/agents/execute', authenticateToken, async (req, res) => {
     const result = await executeAgentGraph({
       userPrompt: prompt,
       agentMode,
+      model,
       messages,
     });
 

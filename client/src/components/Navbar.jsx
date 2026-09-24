@@ -14,6 +14,7 @@ import {
 import { setCreditModalOpen } from '../store/authSlice.js';
 import { toggleSidebar } from '../store/agentSlice.js';
 import { toggleTheme } from '../store/themeSlice.js';
+import ModelSelector from './ModelSelector.jsx';
 
 export const Navbar = () => {
   const dispatch = useDispatch();
@@ -57,15 +58,20 @@ export const Navbar = () => {
           </div>
         </div>
 
-        <div className="hidden md:flex items-center ml-4 pl-4 border-l border-slate-200 dark:border-dark-800">
+        <div className="hidden md:flex items-center ml-4 pl-4 border-l border-slate-200 dark:border-dark-800 gap-2.5">
           <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-dark-850 px-3 py-1.5 rounded-full border border-slate-200 dark:border-dark-700/60 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="font-medium text-slate-700 dark:text-slate-300">Mode: {getAgentLabel()}</span>
           </div>
+          <ModelSelector />
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        <div className="md:hidden">
+          <ModelSelector />
+        </div>
+
         {/* Theme Toggle Button */}
         <button
           onClick={() => dispatch(toggleTheme())}

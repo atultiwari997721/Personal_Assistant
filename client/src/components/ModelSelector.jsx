@@ -38,14 +38,16 @@ export const ModelSelector = () => {
 
   useEffect(() => {
     let active = true;
-    api.get('/agents/providers')
-      .then((response) => {
-        if (active) setProviderStates(Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider])));
-      })
-      .catch(() => {
-        if (active) setProviderStates({});
-      });
-    return () => { active = false; };
+    const refreshProviders = () => {
+      api.get('/agents/providers')
+        .then((response) => {
+          if (active) setProviderStates(Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider])));
+        })
+        .catch(() => {});
+    };
+    refreshProviders();
+    const timer = window.setInterval(refreshProviders, 10000);
+    return () => { active = false; window.clearInterval(timer); };
   }, []);
 
   // Older builds persisted concrete model IDs (including Ollama) even when

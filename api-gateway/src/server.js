@@ -40,6 +40,7 @@ app.use(
   createProxyMiddleware({
     target: AUTH_SERVICE_URL,
     changeOrigin: true,
+    pathRewrite: { '^/': '/api/auth/' },
   })
 );
 
@@ -49,6 +50,7 @@ app.use(
   createProxyMiddleware({
     target: PAYMENT_SERVICE_URL,
     changeOrigin: true,
+    pathRewrite: { '^/': '/api/payments/' },
   })
 );
 
@@ -99,6 +101,7 @@ app.use(
   createProxyMiddleware({
     target: AGENT_SERVICE_URL,
     changeOrigin: true,
+    pathRewrite: { '^/': '/api/agents/' },
   })
 );
 

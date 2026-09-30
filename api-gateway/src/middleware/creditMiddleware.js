@@ -63,6 +63,9 @@ export const deductCreditPostExecution = async (uid, amount = 1) => {
       uid,
       amount,
     });
+    if (res.data.remainingCredits !== undefined && res.data.remainingCredits !== null) {
+      await redisClient.set(`credits:${uid}`, String(res.data.remainingCredits), 'EX', 3600);
+    }
     return res.data.remainingCredits;
   } catch (err) {
     console.error('[Credit Middleware] Failed to deduct credit:', err.message);

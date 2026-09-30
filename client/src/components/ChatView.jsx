@@ -81,6 +81,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 export const ChatView = ({ messages, isLoading, onSendMessage, onPluginAction, onNavigate = () => {} }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
+  const compact = localStorage.getItem('kritiai_compact') === 'true';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -100,7 +101,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage, onPluginAction, o
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+      <div className={`flex-1 overflow-y-auto p-4 md:p-6 ${compact ? 'space-y-3' : 'space-y-6'}`}>
         {messages.map((msg) => {
           const isUser = msg.role === 'user';
           return (
@@ -190,7 +191,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage, onPluginAction, o
             <ModelSelector />
           </div>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline font-medium">
-            AI provider configured on the agent service
+            Choose a provider in API &amp; Plugins
           </span>
         </div>
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-center">

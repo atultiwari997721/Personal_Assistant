@@ -17,7 +17,7 @@ export const createPluginDraft = (prompt) => {
   if (/\b(email|gmail)\b/i.test(text) && /\b(send|email|message)\b/i.test(text)) {
     return { type: 'gmail', to: '', subject: 'Message from KritiAI', body: text };
   }
-  if (/\b(whatsapp|send (a )?message|message on whatsapp)\b/i.test(text) && /\b(send|message|text)\b/i.test(text)) {
+  if (/\bwhatsapp\b/i.test(text) || (/\b(send|message|text)\b/i.test(text) && /\b(someone|person|contact|to)\b/i.test(text))) {
     return { type: 'whatsapp', to: '', body: text };
   }
   return null;

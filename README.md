@@ -7,7 +7,9 @@
 [![Redis](https://img.shields.io/badge/Session_Store-Redis-critical.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Containerized-Docker_Compose-blue.svg)](https://www.docker.com/)
 
-A production-ready, microservices-based Multi-Agent AI SaaS Platform built with **MERN** (MongoDB, Express, React, Node.js), **LangGraph**, **Qdrant Vector DB**, **Redis**, **Docker**, and **AWS**.
+The original Cortex application is a microservices-based multi-agent web application built with **React**, **Express**, **LangGraph**, and optional **MongoDB**, **Redis**, and **Docker** services.
+
+> **Current implementation status:** This repository is being migrated to KritiAI. The active agent path now requires an explicitly configured model provider and reports provider/configuration errors instead of generating canned answers. The architecture and feature lists below describe the earlier Cortex version and are not a claim that those integrations are currently operational. Gmail, Calendar, Drive, local computer tools, image generation, persistent RAG, and device sync are not implemented in this build.
 
 ---
 

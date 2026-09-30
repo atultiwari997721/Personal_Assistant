@@ -313,34 +313,6 @@ export const performWebSearch = async (query) => {
     }
   });
 
-  // Fallback guarantee if no search hit found for esoteric prompt
-  if (results.length === 0) {
-    results.push(
-      {
-        title: `${coreKeywords} - Technical Analysis & Community Intel`,
-        url: `https://github.com/topics/${encodeURIComponent(coreKeywords.toLowerCase().replace(/\s+/g, '-'))}`,
-        content: `Comprehensive specifications, documentation, and active repositories covering ${coreKeywords}.`,
-        score: 0.91,
-        source: 'GitHub Topics',
-      },
-      {
-        title: `${coreKeywords} Overview & Best Practices`,
-        url: `https://stackoverflow.com/search?q=${encodeURIComponent(coreKeywords)}`,
-        content: `Developer discussions, architecture reviews, and operational insights for ${coreKeywords}.`,
-        score: 0.86,
-        source: 'StackOverflow Intel',
-      }
-    );
-  }
-
-  // Topic-tailored imagery
-  if (images.length === 0) {
-    images.push(
-      `https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80`,
-      `https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80`
-    );
-  }
-
   const synthesizedAnswer = `Multi-API live web search for "${cleanQuery}" retrieved ${results.length} verified sources simultaneously across Wikipedia, Hacker News, GitHub, and live data feeds.`;
 
   return {

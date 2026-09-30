@@ -93,6 +93,11 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
               >
                 <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center justify-between">
                   <span>{isUser ? 'You' : `Agent (${msg.agent || 'Intelligence'})`}</span>
+                  {!isUser && msg.data?.metadata?.provider && (
+                    <span className="text-slate-400 dark:text-slate-500">
+                      {msg.data.metadata.provider} · {msg.data.metadata.model}
+                    </span>
+                  )}
                   <span className="text-[10px] text-slate-400 dark:text-slate-500">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -144,11 +149,11 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
       <div className="p-4 border-t border-slate-200 dark:border-dark-800 bg-white/80 dark:bg-dark-900/60 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between mb-2.5 px-1">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI Model:</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI Provider:</span>
             <ModelSelector />
           </div>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline font-medium">
-            Multi-API Parallel Search • Qdrant Vector RAG • Free AI
+            AI provider configured on the agent service
           </span>
         </div>
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-center">

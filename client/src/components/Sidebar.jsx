@@ -27,8 +27,8 @@ export const AGENT_MODES = [
   },
   {
     id: 'search',
-    name: 'Web Search & RAG',
-    subtitle: 'Tavily & Qdrant',
+    name: 'Web Search',
+    subtitle: 'Live source search',
     icon: Globe,
     color: 'text-emerald-500 dark:text-emerald-400',
     bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
@@ -192,7 +192,7 @@ export const Sidebar = () => {
           <Sparkles className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
           <span>LangGraph v0.2</span>
         </div>
-        <span className="text-[10px] text-slate-400 dark:text-slate-500">Qdrant • Redis</span>
+        <span className="text-[10px] text-slate-400 dark:text-slate-500">KritiAI</span>
       </div>
     </aside>
     </>

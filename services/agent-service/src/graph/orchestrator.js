@@ -126,25 +126,12 @@ export const buildOrchestratorGraph = () => {
 
 // Execution helper
 export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto' }) => {
-  try {
-    const graph = buildOrchestratorGraph();
-    const finalState = await graph.invoke({
-      userPrompt,
-      agentMode,
-      model,
-      messages: messages || [],
-    });
-    return finalState.result;
-  } catch (err) {
-    console.error('[LangGraph Orchestrator] Execution fallback triggered:', err.message);
-    // Direct node invocation safety fallback
-    switch (agentMode) {
-      case 'search': return await runSearchAgent(userPrompt, model);
-      case 'code': return await runCodeAgent(userPrompt, model);
-      case 'pdf': return await runPdfAgent(userPrompt, model);
-      case 'ppt': return await runPptAgent(userPrompt, model);
-      case 'image': return await runImageAgent(userPrompt);
-      default: return await runChatAgent(messages, userPrompt, model);
-    }
-  }
+  const graph = buildOrchestratorGraph();
+  const finalState = await graph.invoke({
+    userPrompt,
+    agentMode,
+    model,
+    messages: messages || [],
+  });
+  return finalState.result;
 };

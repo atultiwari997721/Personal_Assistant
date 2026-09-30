@@ -1,89 +1,46 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 export const AVAILABLE_MODELS = [
-  {
-    id: 'auto',
-    name: 'Auto Ensemble AI',
-    badge: 'Multi-API',
-    desc: 'Simultaneous parallel search APIs + cognitive synthesis',
-  },
-  {
-    id: 'cortex-cognitive',
-    name: 'Cortex Cognitive Brain',
-    badge: 'Zero-Latency',
-    desc: 'Local deep math, algorithms & architectural reasoning',
-  },
-  {
-    id: 'nvidia-nemotron',
-    name: 'NVIDIA Nemotron 70B',
-    badge: 'NVIDIA AI',
-    desc: 'Frontier reasoning, alignment & complex logic',
-  },
-  {
-    id: 'nvidia-mistral-nemo',
-    name: 'NVIDIA Mistral NeMo',
-    badge: 'NVIDIA Speed',
-    desc: 'Ultra-fast architectural & code generation',
-  },
-  {
-    id: 'deepseek-r1',
-    name: 'DeepSeek-R1 (Reasoning)',
-    badge: 'Free Web AI',
-    desc: 'Deep step-by-step chain-of-thought logic',
-  },
-  {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini (OpenAI)',
-    badge: 'Free Web AI',
-    desc: 'Fast, comprehensive cloud intelligence',
-  },
-  {
-    id: 'claude-3-5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    badge: 'Anthropic AI',
-    desc: 'Nuanced architecture, systems design & writing',
-  },
-  {
-    id: 'gemini-2-flash',
-    name: 'Gemini 2.0 Flash',
-    badge: 'Google AI',
-    desc: 'Next-gen high-speed multimodal reasoning',
-  },
-  {
-    id: 'qwen-coder',
-    name: 'Qwen 2.5 Coder',
-    badge: 'Code AI',
-    desc: 'Specialized programming, debugging & syntax',
-  },
-  {
-    id: 'phi-4',
-    name: 'Microsoft Phi-4 14B',
-    badge: 'Microsoft AI',
-    desc: 'Compact reasoning for math & scientific deduction',
-  },
-  {
-    id: 'llama-3',
-    name: 'Llama 3.3 70B',
-    badge: 'Meta AI',
-    desc: 'Broad encyclopedic knowledge & research',
-  },
+  { id: 'auto', name: 'Automatic', badge: 'AUTO', desc: 'Use the first configured provider or LLM_PROVIDER preference.' },
+  { id: 'openai', name: 'OpenAI', badge: 'PROVIDER', desc: 'Uses OPENAI_API_KEY and OPENAI_MODEL on the agent service.' },
+  { id: 'gemini', name: 'Google Gemini', badge: 'PROVIDER', desc: 'Uses GEMINI_API_KEY and GEMINI_MODEL on the agent service.' },
+  { id: 'nvidia', name: 'NVIDIA NIM', badge: 'PROVIDER', desc: 'Uses NVIDIA_API_KEY and NVIDIA_MODEL on the agent service.' },
+  { id: 'groq', name: 'Groq', badge: 'PROVIDER', desc: 'Uses GROQ_API_KEY and GROQ_MODEL on the agent service.' },
+  { id: 'huggingface', name: 'Hugging Face', badge: 'PROVIDER', desc: 'Uses HF_TOKEN and HF_MODEL on the agent service.' },
+  { id: 'openrouter', name: 'OpenRouter', badge: 'PROVIDER', desc: 'Uses OPENROUTER_API_KEY and OPENROUTER_MODEL on the agent service.' },
+  { id: 'ollama', name: 'Ollama (Local)', badge: 'LOCAL', desc: 'Uses OLLAMA_MODEL and the configured Ollama endpoint.' },
 ];
+
+const legacyProvider = {
+  'gpt-4o-mini': 'openai',
+  'claude-3-5-sonnet': 'openrouter',
+  'gemini-2-flash': 'gemini',
+  'nvidia-nemotron': 'nvidia',
+  'nvidia-mistral-nemo': 'nvidia',
+  'deepseek-r1': 'openrouter',
+  'qwen-coder': 'ollama',
+  'phi-4': 'ollama',
+  'llama-3': 'ollama',
+  'cortex-cognitive': 'ollama',
+};
+
+const storedModel = localStorage.getItem('cortex_selected_model') || 'auto';
+const initialModel = legacyProvider[storedModel] || storedModel;
 
 const initialMessages = [
   {
     id: 'welcome-msg',
     role: 'assistant',
     agent: 'chat',
-    content: `### Welcome to Cortex Multi-Agent AI Platform 🚀\n\nI am your unified multi-agent orchestrator. I can coordinate across **6 specialized agents** powered by **Multi-API Simultaneous Search** and **Free AI Models**:\n- **Conversational Chat**: Interactive QA & technical synthesis.\n- **Live Web Search & RAG**: Real-time Wikipedia, Hacker News, GitHub & Qdrant vector retrieval.\n- **Code Sandbox**: Production code generation with an interactive split-screen iframe preview.\n- **PDF Document Generator**: Clean reports with instant PDF export.\n- **Presentation (PPT) Decks**: JSON slide generation and native \`.pptx\` download.\n- **Image Generator**: Visual prompt engineering & high-res rendering.\n\nSelect an agent or choose your preferred **AI Model** in the selector above to begin!`,
+    content: `### Welcome to KritiAI\n\nChoose a configured provider above and send a request to use its model. Provider credentials and model IDs are configured on the agent service; KritiAI does not include a free fallback model.\n\nAvailable workflows use the selected model to answer questions, prepare code for preview, draft documents, or structure presentations. Search requires live results from configured search sources. Image generation, local computer control, Gmail, Calendar, and Drive are not connected in this build, so KritiAI will report when a capability needs configuration.`,
     timestamp: new Date().toISOString(),
   }
 ];
-
 const agentSlice = createSlice({
   name: 'agent',
   initialState: {
     activeAgent: 'chat', // 'chat' | 'search' | 'code' | 'pdf' | 'ppt' | 'image'
-    selectedModel: localStorage.getItem('cortex_selected_model') || 'auto',
+    selectedModel: initialModel,
     messages: initialMessages,
     isLoading: false,
     activeArtifact: null, // Holds latest artifact (code, slides, docMarkdown, image)

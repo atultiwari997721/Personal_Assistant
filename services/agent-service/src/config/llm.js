@@ -1,255 +1,239 @@
 import dns from 'dns';
-import axios from 'axios';
 import { ChatOpenAI } from '@langchain/openai';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-// Force IPv4 on Windows to prevent IPv6 connection timeouts
 try {
   dns.setDefaultResultOrder('ipv4first');
-} catch (e) {}
+} catch {}
 
-export const getActiveProvider = () => {
-  if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes('your_openai') && process.env.OPENAI_API_KEY.length > 5) {
-    return {
-      type: 'openai',
-      apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.LLM_MODEL || 'gpt-4o-mini',
-      baseURL: process.env.OPENAI_BASE_URL,
-    };
-  }
-
-  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.length > 5) {
-    return {
-      type: 'groq',
-      apiKey: process.env.GROQ_API_KEY,
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      baseURL: 'https://api.groq.com/openai/v1',
-    };
-  }
-
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 5) {
-    return {
-      type: 'gemini',
-      apiKey: process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-    };
-  }
-
-  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 5) {
-    return {
-      type: 'openrouter',
-      apiKey: process.env.OPENROUTER_API_KEY,
-      model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
-      baseURL: 'https://openrouter.ai/api/v1',
-    };
-  }
-
-  if (process.env.NVIDIA_API_KEY && process.env.NVIDIA_API_KEY.length > 5) {
-    return {
-      type: 'nvidia',
-      apiKey: process.env.NVIDIA_API_KEY,
-      model: process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-70b-instruct',
-      baseURL: 'https://integrate.api.nvidia.com/v1',
-    };
-  }
-
-  if (process.env.OLLAMA_URL) {
-    return {
-      type: 'ollama',
-      apiKey: 'ollama',
-      model: process.env.OLLAMA_MODEL || 'llama3',
-      baseURL: process.env.OLLAMA_URL.endsWith('/v1') ? process.env.OLLAMA_URL : `${process.env.OLLAMA_URL}/v1`,
-    };
-  }
-
-  return null;
+const hasSecret = (name) => {
+  const value = process.env[name]?.trim();
+  return Boolean(value && value.length > 5 && !/your_|placeholder|replace_me/i.test(value));
 };
 
-export const hasValidLLMKey = () => {
-  return getActiveProvider() !== null;
+const PROVIDER_DEFINITIONS = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    keyEnv: 'OPENAI_API_KEY',
+    modelEnv: 'OPENAI_MODEL',
+    baseUrlEnv: 'OPENAI_BASE_URL',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    keyEnv: 'GEMINI_API_KEY',
+    modelEnv: 'GEMINI_MODEL',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  },
+  {
+    id: 'nvidia',
+    name: 'NVIDIA NIM',
+    keyEnv: 'NVIDIA_API_KEY',
+    modelEnv: 'NVIDIA_MODEL',
+    baseUrlEnv: 'NVIDIA_BASE_URL',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    keyEnv: 'GROQ_API_KEY',
+    modelEnv: 'GROQ_MODEL',
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'huggingface',
+    name: 'Hugging Face Inference Providers',
+    keyEnv: 'HF_TOKEN',
+    modelEnv: 'HF_MODEL',
+    defaultBaseUrl: 'https://router.huggingface.co/v1',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    keyEnv: 'OPENROUTER_API_KEY',
+    modelEnv: 'OPENROUTER_MODEL',
+    baseUrlEnv: 'OPENROUTER_BASE_URL',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (Local)',
+    keyEnv: null,
+    modelEnv: 'OLLAMA_MODEL',
+    baseUrlEnv: 'OLLAMA_URL',
+    defaultBaseUrl: 'http://127.0.0.1:11434/v1',
+    local: true,
+  },
+];
+
+const LEGACY_MODEL_PROVIDER = {
+  'gpt-4o-mini': 'openai',
+  'claude-3-5-sonnet': 'openrouter',
+  'gemini-2-flash': 'gemini',
+  'nvidia-nemotron': 'nvidia',
+  'nvidia-mistral-nemo': 'nvidia',
+  'deepseek-r1': 'openrouter',
+  'qwen-coder': 'ollama',
+  'phi-4': 'ollama',
+  'llama-3': 'ollama',
+  'cortex-cognitive': 'ollama',
 };
 
-export const getLangChainLLM = (temperature = 0.7) => {
-  const provider = getActiveProvider();
+const providerConfiguration = (definition) => {
+  const keyConfigured = definition.local
+    ? Boolean(process.env[definition.modelEnv]?.trim())
+    : hasSecret(definition.keyEnv);
+  const model = process.env[definition.modelEnv]?.trim() || (definition.id === 'openai' ? process.env.LLM_MODEL?.trim() : '') || '';
+  let baseURL = (definition.baseUrlEnv && process.env[definition.baseUrlEnv]?.trim()) || definition.defaultBaseUrl;
+  if (definition.local && baseURL && !baseURL.replace(/\/$/, '').endsWith('/v1')) {
+    baseURL = `${baseURL.replace(/\/$/, '')}/v1`;
+  }
+  const configured = keyConfigured && Boolean(model);
+
+  return {
+    id: definition.id,
+    name: definition.name,
+    configured,
+    status: !keyConfigured ? 'not_configured' : !model ? 'model_required' : 'ready',
+    model: model || null,
+    local: Boolean(definition.local),
+    ...(configured
+      ? { apiKey: definition.local ? 'ollama' : process.env[definition.keyEnv].trim(), baseURL }
+      : {}),
+  };
+};
+
+const providerConfigurations = () => PROVIDER_DEFINITIONS.map(providerConfiguration);
+
+export const getConfiguredProviders = () => providerConfigurations().map(({ id, name, configured, status, model, local }) => ({
+  id,
+  name,
+  configured,
+  status,
+  model,
+  local,
+}));
+
+export const getModelIdentity = (requestedModel = 'auto') => {
+  const provider = getActiveProvider(requestedModel);
+  return provider ? { provider: provider.id, model: provider.model } : null;
+};
+
+export const getActiveProvider = (requestedModel = 'auto') => {
+  const requested = (requestedModel || 'auto').toLowerCase();
+  const selectedProvider = LEGACY_MODEL_PROVIDER[requested] || requested.replace(/^provider:/, '');
+  const configurations = providerConfigurations();
+
+  if (requested === 'auto') {
+    const preferred = process.env.LLM_PROVIDER?.trim().toLowerCase();
+    const ordered = preferred
+      ? [...configurations.filter((provider) => provider.id === preferred), ...configurations.filter((provider) => provider.id !== preferred)]
+      : configurations;
+    return ordered.find((provider) => provider.configured) || null;
+  }
+
+  const definition = PROVIDER_DEFINITIONS.find((provider) => provider.id === selectedProvider);
+  if (!definition) {
+    const error = new Error('Unsupported AI provider selection.');
+    error.code = 'AI_PROVIDER_UNSUPPORTED';
+    throw error;
+  }
+
+  const provider = configurations.find((candidate) => candidate.id === definition.id);
+  if (!provider.configured) {
+    const error = new Error(`${provider.name} is ${provider.status === 'model_required' ? 'configured without a model' : 'not configured'}.`);
+    error.code = provider.status === 'model_required' ? 'AI_MODEL_NOT_CONFIGURED' : 'AI_PROVIDER_NOT_CONFIGURED';
+    error.provider = provider.id;
+    throw error;
+  }
+
+  return provider;
+};
+
+export const hasValidLLMKey = () => providerConfigurations().some((provider) => provider.configured);
+
+export const getLangChainLLM = (temperature = 0.7, requestedModel = 'auto', timeout = 35000) => {
+  const provider = getActiveProvider(requestedModel);
   if (!provider) return null;
 
   return new ChatOpenAI({
-    openAIApiKey: provider.apiKey,
-    modelName: provider.model,
+    apiKey: provider.apiKey,
+    model: provider.model,
     temperature,
-    configuration: provider.baseURL ? { baseURL: provider.baseURL } : undefined,
+    timeout,
+    configuration: { baseURL: provider.baseURL },
   });
 };
 
-export const extractResponseText = (data) => {
-  if (typeof data === 'string') return data.trim();
-  if (!data || typeof data !== 'object') return '';
-
-  // 1. OpenAI Chat Completion format: { choices: [{ message: { content, reasoning } }] }
-  if (Array.isArray(data.choices) && data.choices.length > 0) {
-    const choice = data.choices[0];
-    const msg = choice.message || choice.delta || {};
-    const text = msg.content || msg.reasoning || choice.text || '';
-    if (typeof text === 'string' && text.trim().length > 0) {
-      return text.trim();
-    }
-  }
-
-  // 2. Pollinations / Anthropic format: { content: '...' } or { text: '...' }
-  if (typeof data.content === 'string' && data.content.trim().length > 0) {
-    return data.content.trim();
-  }
-  if (typeof data.text === 'string' && data.text.trim().length > 0) {
-    return data.text.trim();
-  }
-  if (typeof data.reasoning === 'string' && data.reasoning.trim().length > 0) {
-    return data.reasoning.trim();
-  }
-  if (typeof data.output === 'string' && data.output.trim().length > 0) {
-    return data.output.trim();
-  }
-  if (typeof data.message === 'string' && data.message.trim().length > 0) {
-    return data.message.trim();
-  }
-
-  // 3. Fallback: stringified if contains actual content
-  const str = JSON.stringify(data);
-  return str.length > 10 ? str : '';
+const toProviderError = (error, provider) => {
+  const status = error?.status || error?.response?.status;
+  const mapped = new Error(
+    status === 401 || status === 403
+      ? `${provider.name} authentication failed. Check its API key.`
+      : status === 429
+        ? `${provider.name} quota or rate limit was reached.`
+        : `${provider.name} request failed${status ? ` (HTTP ${status})` : ''}.`,
+  );
+  mapped.code = status === 401 || status === 403
+    ? 'AI_PROVIDER_AUTH_FAILED'
+    : status === 429
+      ? 'AI_PROVIDER_QUOTA_EXCEEDED'
+      : 'AI_PROVIDER_REQUEST_FAILED';
+  mapped.provider = provider.id;
+  mapped.status = status;
+  return mapped;
 };
 
-/**
- * Universal dynamic LLM invocation:
- * 1. Checks user's configured API Key via LangChain (OpenAI, Groq, Gemini, NVIDIA, OpenRouter, Ollama).
- * 2. If no key, seamlessly attempts live inference via fast online models with extended timeout.
- * 3. Falls back gracefully with specialized model personas.
- */
 export const invokeLLM = async ({
   systemPrompt,
   userPrompt,
   messages = [],
   temperature = 0.7,
-  jsonMode = false,
   model = 'auto',
   timeout = 35000,
 }) => {
-  // If user explicitly chose local Cognitive Brain, skip cloud inference directly
-  if (model === 'cortex-cognitive') {
-    throw new Error('LOCAL_COGNITIVE_REQUESTED');
+  const provider = getActiveProvider(model);
+  if (!provider) {
+    const error = new Error('No AI provider is configured. Configure an API key and model on the agent service, or configure Ollama locally.');
+    error.code = 'AI_PROVIDER_NOT_CONFIGURED';
+    throw error;
   }
 
-  // Model-specific prompt engineering & personas
-  let activeSystemPrompt = systemPrompt || '';
-  if (model === 'nvidia-nemotron') {
-    activeSystemPrompt = `You are NVIDIA Llama-3.1-Nemotron-70B-Instruct, an ultra-advanced reasoning and alignment frontier model engineered by NVIDIA. You excel at complex multi-step reasoning, mathematical precision, and technical problem solving.\n\n${activeSystemPrompt}`;
-  } else if (model === 'nvidia-mistral-nemo') {
-    activeSystemPrompt = `You are NVIDIA Mistral NeMo 12B, an ultra-efficient model built by NVIDIA and Mistral AI. Deliver concise, lightning-fast, and precise architectural solutions.\n\n${activeSystemPrompt}`;
-  } else if (model === 'deepseek-r1') {
-    activeSystemPrompt = `You are DeepSeek-R1, an ultra-advanced reasoning AI. Reason thoroughly and methodically. First present your step-by-step reasoning analysis under a "### 🧠 Analytical Reasoning" section, followed by your definitive solution.\n\n${activeSystemPrompt}`;
-  } else if (model === 'qwen-coder') {
-    activeSystemPrompt = `You are Qwen 2.5 Coder, a world-class principal software architect and competitive programmer. Provide immaculate, high-performance, runnable code with asymptotic complexity analysis and unit test cases.\n\n${activeSystemPrompt}`;
-  } else if (model === 'claude-3-5-sonnet') {
-    activeSystemPrompt = `You are Claude 3.5 Sonnet, an exceptional frontier intelligence known for nuanced software architecture, thoughtful prose, and deep systems engineering.\n\n${activeSystemPrompt}`;
-  } else if (model === 'gemini-2-flash') {
-    activeSystemPrompt = `You are Google Gemini 2.0 Flash, a next-generation high-speed multimodal reasoning model. Deliver clear, direct, and structured intelligence.\n\n${activeSystemPrompt}`;
-  } else if (model === 'phi-4') {
-    activeSystemPrompt = `You are Microsoft Phi-4, a compact reasoning powerhouse specialized in mathematical deduction, logic, and scientific clarity.\n\n${activeSystemPrompt}`;
-  } else if (model === 'llama-3') {
-    activeSystemPrompt = `You are Llama 3.3 70B, an authoritative open-weights frontier intelligence. Provide deep factual, analytical, and structured synthesis.\n\n${activeSystemPrompt}`;
+  const formatted = [];
+  if (systemPrompt) formatted.push(new SystemMessage(systemPrompt));
+  for (const message of messages || []) {
+    const role = message.sender || message.role;
+    const content = message.content || message.text || '';
+    if (!content) continue;
+    if (role === 'user') formatted.push(new HumanMessage(content));
+    else if (role === 'assistant') formatted.push(new AIMessage(content));
   }
-
-  // Option 1: Configured API Key via LangChain
-  if (hasValidLLMKey()) {
-    try {
-      const llm = getLangChainLLM(temperature);
-      const formatted = [];
-      if (activeSystemPrompt) formatted.push(new SystemMessage(activeSystemPrompt));
-      (messages || []).forEach((m) => {
-        if (m.sender === 'user' || m.role === 'user') {
-          formatted.push(new HumanMessage(m.content || m.text));
-        } else if (m.sender === 'assistant' || m.role === 'assistant') {
-          formatted.push(new AIMessage(m.content || m.text));
-        }
-      });
-      formatted.push(new HumanMessage(userPrompt));
-
-      const response = await llm.invoke(formatted);
-      return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
-    } catch (langchainErr) {
-      console.warn('[LLM] LangChain API failed, attempting fast cloud inference:', langchainErr.message);
-    }
-  }
-
-  // Option 2: Live inference via POST with extended timeout
-  const formattedMessages = [];
-  if (activeSystemPrompt) formattedMessages.push({ role: 'system', content: activeSystemPrompt });
-  (messages || []).slice(-4).forEach((m) => {
-    const role = m.sender === 'user' || m.role === 'user' ? 'user' : 'assistant';
-    formattedMessages.push({ role, content: m.content || m.text || '' });
-  });
-  formattedMessages.push({ role: 'user', content: userPrompt });
-
-  // Function to execute POST request
-  const attemptPost = async () => {
-    const response = await axios.post(
-      'https://text.pollinations.ai/',
-      {
-        messages: formattedMessages,
-        model: 'openai',
-        jsonMode: jsonMode || false,
-        seed: Math.floor(Math.random() * 1000000),
-      },
-      {
-        timeout: timeout || 35000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      }
-    );
-
-    const parsed = extractResponseText(response.data);
-    if (parsed && parsed.length > 0 && !parsed.includes('Internal Server Error')) {
-      return parsed;
-    }
-    return null;
-  };
+  formatted.push(new HumanMessage(userPrompt));
 
   try {
-    const postResult = await attemptPost();
-    if (postResult) return postResult;
-  } catch (postErr) {
-    console.warn('[LLM] POST inference attempt 1 failed:', postErr.message);
-    // If rate limited (429), wait 1s and retry once
-    if (postErr.response?.status === 429) {
-      try {
-        await new Promise((r) => setTimeout(r, 1200));
-        const retryResult = await attemptPost();
-        if (retryResult) return retryResult;
-      } catch (retryErr) {
-        console.warn('[LLM] POST retry failed:', retryErr.message);
-      }
-    }
-  }
+    const llm = getLangChainLLM(temperature, model, timeout);
+    const response = await llm.invoke(formatted);
+    const content = typeof response.content === 'string'
+      ? response.content.trim()
+      : Array.isArray(response.content)
+        ? response.content.map((part) => typeof part === 'string' ? part : part?.text || '').join('').trim()
+        : '';
 
-  // Option 3: Fast GET inference fallback
-  try {
-    const queryParam = encodeURIComponent(userPrompt.slice(0, 800));
-    const sysParam = activeSystemPrompt ? `&system=${encodeURIComponent(activeSystemPrompt.slice(0, 400))}` : '';
-    const getUrl = `https://text.pollinations.ai/${queryParam}?model=openai${sysParam}`;
-    const getRes = await axios.get(getUrl, {
-      timeout: Math.min(timeout, 30000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    const parsedGet = extractResponseText(getRes.data);
-    if (parsedGet && parsedGet.length > 0 && !parsedGet.includes('Internal Server Error')) {
-      return parsedGet;
+    if (!content) {
+      const error = new Error(`${provider.name} returned an empty response.`);
+      error.code = 'AI_PROVIDER_EMPTY_RESPONSE';
+      error.provider = provider.id;
+      throw error;
     }
-  } catch (getErr) {
-    console.warn('[LLM] GET fallback failed:', getErr.message);
+    return content;
+  } catch (error) {
+    if (error.code?.startsWith('AI_')) throw error;
+    console.error(`[LLM] ${provider.id} request failed`, { status: error?.status || error?.response?.status });
+    throw toProviderError(error, provider);
   }
-
-  throw new Error('LLM_PROVIDER_OFFLINE');
 };

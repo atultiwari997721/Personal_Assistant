@@ -13,7 +13,7 @@ export const AGENT_SPECS = [
   {
     id: 'search',
     name: 'Live Web Search',
-    description: 'Real-time information and multimedia via Tavily & Qdrant vector retrieval.',
+    description: 'Live web results from configured search sources, synthesized by the selected AI provider.',
     icon: 'Globe',
     prompt: 'You are a Search AI Agent with real-time web access. When answering questions requiring current data, query web tools, synthesize factual key insights with inline citations, and return relevant image links in markdown.',
   },
@@ -69,8 +69,14 @@ export const runAgentTask = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error('[Agent Service] Task error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('[Agent Service] Task error:', { code: error.code, message: error.message });
+    const status = error.status === 429 ? 429 : error.status === 401 || error.status === 403 ? 502 : 500;
+    return res.status(status).json({
+      success: false,
+      code: error.code || 'AGENT_EXECUTION_FAILED',
+      provider: error.provider,
+      message: error.message || 'Agent execution failed.',
+    });
   }
 };
 

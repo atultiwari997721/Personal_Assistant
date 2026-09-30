@@ -85,6 +85,11 @@ export const App = () => {
       });
 
       const { data, remainingCredits } = response.data;
+      if (!data?.content) {
+        const error = new Error('The agent returned no result.');
+        error.code = 'AGENT_EMPTY_RESPONSE';
+        throw error;
+      }
 
       // Update remaining credit balance from API Gateway
       if (remainingCredits !== null && remainingCredits !== undefined) {
@@ -96,7 +101,7 @@ export const App = () => {
         addMessage({
           role: 'assistant',
           agent: data.agent || activeAgent,
-          content: data.content || 'Task completed successfully.',
+          content: data.content,
           data,
         })
       );
@@ -113,8 +118,7 @@ export const App = () => {
       }
     } catch (err) {
       console.error('Agent execution error:', err);
-      const errorMsg =
-        err.response?.data?.message || 'Failed to execute agent task. Please check server logs.';
+      const errorMsg = err.response?.data?.message || err.message || 'Agent execution failed.';
       dispatch(
         addMessage({
           role: 'assistant',

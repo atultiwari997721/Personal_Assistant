@@ -24,7 +24,7 @@ export const Navbar = () => {
 
   const getAgentLabel = () => {
     switch (activeAgent) {
-      case 'search': return 'Live Web Search (RAG)';
+      case 'search': return 'Live Web Search';
       case 'code': return 'Code & Sandbox Studio';
       case 'pdf': return 'PDF Document Engine';
       case 'ppt': return 'Presentation PPT Engine';

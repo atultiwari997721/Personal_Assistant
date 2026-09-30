@@ -1,0 +1,16 @@
+[package]
+name = "kritiai-desktop"
+version = "0.1.0"
+description = "KritiAI Windows desktop application"
+authors = ["KritiAI"]
+edition = "2021"
+
+[lib]
+name = "kritiai_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

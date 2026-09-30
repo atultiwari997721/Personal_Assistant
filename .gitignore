@@ -5,6 +5,7 @@
 # Dependencies
 **/node_modules/
 node_modules/
+.pnpm-store/
 .pnp
 .pnp.js
 
@@ -20,6 +21,7 @@ node_modules/
 # Production Build Outputs
 **/dist/
 dist/
+**/target/
 **/build/
 build/
 out/

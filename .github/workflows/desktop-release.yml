@@ -1,0 +1,47 @@
+name: Build KritiAI Windows installer
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        working-directory: client
+        run: pnpm install --frozen-lockfile
+      - name: Require configured API endpoint
+        shell: pwsh
+        run: |
+          if (-not $env:VITE_API_URL -or -not $env:VITE_API_URL.StartsWith('https://')) {
+            throw 'Set the GitHub Actions repository variable VITE_API_URL to the HTTPS API URL ending in /api before creating a desktop release.'
+          }
+      - name: Build and publish Windows NSIS installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: client
+          tagName: ${{ github.ref_name }}
+          releaseName: "KritiAI ${{ github.ref_name }}"
+          releaseBody: "KritiAI Windows installer."
+          releaseDraft: true
+          prerelease: false

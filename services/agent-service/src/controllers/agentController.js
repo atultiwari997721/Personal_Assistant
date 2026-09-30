@@ -6,9 +6,9 @@ import { invokeLLM } from '../config/llm.js';
 export const testProviderConnection = async (req, res) => {
   try {
     const providerConfig = req.body?.providerConfig;
-    const provider = providerConfig?.provider;
-    if (!provider || (!providerConfig?.apiKey && provider !== 'ollama') || !providerConfig?.model) {
-      return res.status(400).json({ success: false, message: 'Provider, API key, and model ID are required.' });
+    const provider = providerConfig?.provider || req.body?.provider;
+    if (!provider) {
+      return res.status(400).json({ success: false, message: 'Choose a provider first.' });
     }
     const content = await invokeLLM({
       systemPrompt: 'You are checking an AI provider connection. Reply with the single word OK.',
@@ -18,7 +18,7 @@ export const testProviderConnection = async (req, res) => {
       temperature: 0,
       timeout: 20000,
     });
-    return res.json({ success: true, provider, model: providerConfig.model, response: content.slice(0, 40) });
+    return res.json({ success: true, provider, model: providerConfig?.model || undefined, response: content.slice(0, 40) });
   } catch (error) {
     console.error('[Agent Service] Provider check failed:', { code: error.code, provider: error.provider, status: error.status });
     return res.status(400).json({ success: false, code: error.code || 'AI_PROVIDER_REQUEST_FAILED', message: error.message });

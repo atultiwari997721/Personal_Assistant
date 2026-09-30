@@ -28,21 +28,23 @@ function ProviderCard({ model, provider, onSave }) {
   const [testing, setTesting] = useState(false);
   useEffect(() => {
     const saved = getProviderConfigs()[model.id];
-    setConfig({ apiKey: saved?.apiKey || '', model: saved?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] });
-  }, [model.id]);
+    setConfig({ apiKey: saved?.apiKey || '', model: saved?.model || provider?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] });
+  }, [model.id, provider?.model]);
   const isLocal = model.id === 'ollama';
-  const saved = (config.apiKey || isLocal) && config.model;
+  const savedLocally = Boolean((config.apiKey || isLocal) && config.model && getProviderConfigs()[model.id]?.model);
+  const configuredOnService = Boolean(provider?.configured);
+  const ready = savedLocally || configuredOnService;
 
   const save = () => {
     onSave(model.id, config);
-    setStatus(saved ? 'Saved in this browser.' : 'Enter a model ID and API key first.');
+    setStatus(ready ? (savedLocally ? 'Saved in this browser.' : 'Configured on the local agent service.') : 'Enter a model ID and API key first.');
   };
   const test = async () => {
-    if (!saved) return setStatus('Save a model ID and API key first.');
+    if (!ready) return setStatus('Save a model ID and API key first.');
     setTesting(true); setStatus('Checking connection…');
     try {
-      const providerConfig = { provider: model.id, ...config, apiKey: config.apiKey || 'ollama' };
-      const response = await api.post('/agents/providers/test', { providerConfig }, { timeout: 25000 });
+      const providerConfig = savedLocally ? { provider: model.id, ...config, apiKey: config.apiKey || 'ollama' } : undefined;
+      const response = await api.post('/agents/providers/test', { provider: model.id, providerConfig }, { timeout: 25000 });
       setStatus(`Connected: ${response.data.model}`);
     } catch (error) {
       setStatus(error.response?.data?.message || error.message || 'Connection check failed.');
@@ -52,7 +54,7 @@ function ProviderCard({ model, provider, onSave }) {
   return <article className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
     <div className="flex items-start justify-between gap-3 mb-4">
       <div><h3 className="font-semibold">{model.name}</h3><p className="text-xs text-slate-500 mt-1">Use this provider across Chat and every agent.</p></div>
-      <span className={`text-[11px] rounded-full px-2.5 py-1 border ${saved ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{saved ? 'Configured' : 'Not configured'}</span>
+      <span className={`text-[11px] rounded-full px-2.5 py-1 border ${ready ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{savedLocally ? 'Configured in browser' : configuredOnService ? 'Configured on service' : 'Not configured'}</span>
     </div>
     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model ID</label>
     <input value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} placeholder="Enter the model ID from your provider" className="w-full mb-3 rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
@@ -64,8 +66,8 @@ function ProviderCard({ model, provider, onSave }) {
     <input value={config.baseURL} onChange={(e) => setConfig({ ...config, baseURL: e.target.value })} placeholder={PROVIDER_URLS[model.id]} className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Save className="w-3.5 h-3.5" />Save</button>
-      <button type="button" onClick={test} disabled={testing || !saved} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
-      {saved && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed saved provider credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
+      <button type="button" onClick={test} disabled={testing || !ready} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
+      {savedLocally && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: provider?.model || '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed browser-saved credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
     </div>
     {status && <p role="status" className="text-xs mt-3 text-slate-500 dark:text-slate-400">{status}</p>}
   </article>;
@@ -76,6 +78,11 @@ export default function ApiPluginsPage() {
   const [tab, setTab] = useState('api');
   const [pluginConfig, setPluginConfig] = useState(readPlugins);
   const [message, setMessage] = useState('');
+  const [serverProviders, setServerProviders] = useState({});
+
+  useEffect(() => {
+    api.get('/agents/providers').then((response) => setServerProviders(Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider])))).catch(() => {});
+  }, []);
 
   const saveProvider = (provider, config) => {
     saveProviderConfig(provider, config);
@@ -109,7 +116,7 @@ export default function ApiPluginsPage() {
     <div role="tablist" className="inline-flex rounded-xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-1"><button role="tab" aria-selected={tab === 'api'} onClick={() => setTab('api')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'api' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>API</button><button role="tab" aria-selected={tab === 'plugins'} onClick={() => setTab('plugins')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'plugins' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>Plugins</button></div>
     {tab === 'api' ? <>
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-slate-600 dark:text-slate-300 flex gap-3"><ShieldCheck className="w-5 h-5 text-sky-500 shrink-0" /><span>Keys are saved in this browser and included only when you use that provider. Each provider’s own API billing and limits apply. Ollama runs on your configured local endpoint.</span></div>
-      <div className="grid gap-4">{MODEL_LIST.map((model) => <ProviderCard key={model.id} model={model} onSave={saveProvider} />)}</div>
+      <div className="grid gap-4">{MODEL_LIST.map((model) => <ProviderCard key={model.id} model={model} provider={serverProviders[model.id]} onSave={saveProvider} />)}</div>
     </> : <>
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">Connections are stored on this device. Google API access tokens must include Gmail send and/or Calendar event scopes. WhatsApp requires a Meta Cloud API access token and phone number ID. Chat will ask before sending or creating anything.</div>
       <div className="grid gap-4">

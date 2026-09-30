@@ -48,6 +48,15 @@ export const ModelSelector = () => {
     return () => { active = false; };
   }, []);
 
+  // Older builds persisted concrete model IDs (including Ollama) even when
+  // that provider was unavailable. Once the service reports readiness, move
+  // those stale selections back to automatic routing.
+  useEffect(() => {
+    if (selectedModel !== 'auto' && providerStates[selectedModel]?.configured === false) {
+      dispatch(setSelectedModel('auto'));
+    }
+  }, [dispatch, providerStates, selectedModel]);
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -79,6 +88,11 @@ export const ModelSelector = () => {
           <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-dark-800 sticky top-0 bg-white/95 dark:bg-dark-900/95 backdrop-blur-sm z-10">
             AI provider (configured on the agent service)
           </div>
+          {Object.keys(providerStates).length > 0 && !Object.values(providerStates).some((provider) => provider.configured) && (
+            <div className="mx-2 my-2 rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
+              No AI provider is configured. Add a provider API key and model to the agent service, or start Ollama and set <code>OLLAMA_MODEL</code>, then restart the service.
+            </div>
+          )}
           {AVAILABLE_MODELS.map((model) => {
             const ModelIcon = MODEL_ICONS[model.id] || Sparkles;
             const isSelected = selectedModel === model.id;
@@ -87,7 +101,7 @@ export const ModelSelector = () => {
             return (
               <button
                 key={model.id}
-                  disabled={disabled}
+                disabled={disabled}
                 onClick={() => {
                   dispatch(setSelectedModel(model.id));
                   setIsOpen(false);

@@ -50,9 +50,9 @@ export const Navbar = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-tight text-lg cortex-gradient-text">CORTEX</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                Multi-Agent SaaS
+              <span className="font-extrabold tracking-tight text-lg cortex-gradient-text">KritiAI</span>
+              <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                Personal AI
               </span>
             </div>
           </div>

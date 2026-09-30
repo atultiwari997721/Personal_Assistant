@@ -13,6 +13,7 @@ import {
   addMessage,
   setLoading,
   setActiveArtifact,
+  toggleSidebar,
 } from './store/agentSlice.js';
 import { updateCredits, setCreditModalOpen, setCredentials } from './store/authSlice.js';
 import api from './services/api.js';
@@ -23,6 +24,10 @@ export const App = () => {
     (state) => state.agent
   );
   const { user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 767px)').matches) dispatch(toggleSidebar());
+  }, [dispatch]);
 
   // Initialize and synchronize authentication session on startup
   useEffect(() => {
@@ -171,12 +176,12 @@ export const App = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-dark-950 text-slate-800 dark:text-slate-100 font-sans transition-colors">
+    <div className="app-shell flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-dark-950 text-slate-800 dark:text-slate-100 font-sans transition-colors">
       {/* Top Navigation */}
       <Navbar />
 
       {/* Main Body Area */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
         {/* Left Sidebar */}
         <Sidebar />
 

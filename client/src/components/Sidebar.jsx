@@ -13,7 +13,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { setActiveAgent, clearMessages } from '../store/agentSlice.js';
+import { setActiveAgent, clearMessages, toggleSidebar } from '../store/agentSlice.js';
 import { addSession, switchSession, deleteSession } from '../store/sessionSlice.js';
 
 export const AGENT_MODES = [
@@ -74,6 +74,7 @@ export const Sidebar = () => {
 
   const handleAgentSelect = (agentId) => {
     dispatch(setActiveAgent(agentId));
+    if (window.matchMedia('(max-width: 767px)').matches) dispatch(toggleSidebar());
   };
 
   const handleNewSession = () => {
@@ -84,7 +85,9 @@ export const Sidebar = () => {
   if (!sidebarOpen) return null;
 
   return (
-    <aside className="w-72 bg-white dark:bg-dark-900 border-r border-slate-200 dark:border-dark-800 flex flex-col h-full shrink-0 select-none z-20 transition-colors">
+    <>
+    <button aria-label="Close navigation" className="mobile-sidebar-backdrop" onClick={() => dispatch(toggleSidebar())} />
+    <aside className="app-sidebar w-72 bg-white dark:bg-dark-900 border-r border-slate-200 dark:border-dark-800 flex flex-col h-full shrink-0 select-none z-20 transition-colors">
       {/* Top Action: New Session */}
       <div className="p-3 border-b border-slate-200 dark:border-dark-800">
         <button
@@ -192,6 +195,7 @@ export const Sidebar = () => {
         <span className="text-[10px] text-slate-400 dark:text-slate-500">Qdrant • Redis</span>
       </div>
     </aside>
+    </>
   );
 };
 

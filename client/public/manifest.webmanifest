@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "KritiAI — Your Personal AI",
+  "short_name": "KritiAI",
+  "description": "Your personal AI workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080d18",
+  "theme_color": "#080d18",
+  "orientation": "any",
+  "icons": [
+    { "src": "/kritiai.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/kritiai-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/kritiai-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

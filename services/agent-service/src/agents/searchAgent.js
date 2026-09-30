@@ -3,7 +3,7 @@ import { performWebSearch } from '../tools/webSearch.js';
 
 export const SEARCH_SYSTEM_PROMPT = `You are KritiAI's research agent. Use only the supplied source material for claims about current events. Cite source numbers in square brackets, identify uncertainty, and say when the available sources do not answer the question. Never claim searches or retrievals occurred unless results are present.`;
 
-export const runSearchAgent = async (userPrompt, model = 'auto') => {
+export const runSearchAgent = async (userPrompt, model = 'auto', providerConfig) => {
   const webResults = await performWebSearch(userPrompt);
   const liveResults = webResults.results || [];
   if (liveResults.length === 0) {
@@ -20,6 +20,7 @@ export const runSearchAgent = async (userPrompt, model = 'auto') => {
     userPrompt: `User query: "${userPrompt}"\n\nLive web sources:\n${sourceContext}\n\nAnswer with citations such as [1].`,
     temperature: 0.3,
     model,
+    providerConfig,
   });
 
   return {
@@ -27,6 +28,6 @@ export const runSearchAgent = async (userPrompt, model = 'auto') => {
     content,
     citations: liveResults,
     images: webResults.images || [],
-    metadata: { ...getModelIdentity(model), timestamp: new Date() },
+    metadata: { ...getModelIdentity(model, providerConfig), timestamp: new Date() },
   };
 };

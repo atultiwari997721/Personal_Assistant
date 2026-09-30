@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Navbar from './components/Navbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -10,24 +10,35 @@ import DocumentView from './components/DocumentView.jsx';
 import ImageGalleryView from './components/ImageGalleryView.jsx';
 import CreditModal from './components/CreditModal.jsx';
 import {
-  addMessage,
   setLoading,
-  setActiveArtifact,
   toggleSidebar,
 } from './store/agentSlice.js';
 import { updateCredits, setCreditModalOpen, setCredentials } from './store/authSlice.js';
 import api from './services/api.js';
+import SettingsPage from './components/SettingsPage.jsx';
+import ApiPluginsPage from './components/ApiPluginsPage.jsx';
+import { appendSessionMessage, addSession, switchSession } from './store/sessionSlice.js';
+import { getSavedProviderConfig } from './services/providerSettings.js';
+import { createPluginDraft, getEnabledIntegrations, getPluginConfigs } from './services/pluginActions.js';
 
 export const App = () => {
   const dispatch = useDispatch();
-  const { activeAgent, selectedModel, messages, isLoading, activeArtifact } = useSelector(
+  const { activeAgent, selectedModel, isLoading } = useSelector(
     (state) => state.agent
   );
-  const { user } = useSelector((state) => state.auth);
+  const { sessions, activeSessionId } = useSelector((state) => state.session);
+  const activeSession = useMemo(() => sessions.find((session) => session.id === activeSessionId) || sessions[0], [sessions, activeSessionId]);
+  const messages = activeSession?.messages || [];
+  const activeArtifact = activeSession?.artifact || null;
+  const [section, setSection] = useState('workspace');
 
   useEffect(() => {
     if (window.matchMedia('(max-width: 767px)').matches) dispatch(toggleSidebar());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (activeSession?.agent && activeSession.agent !== activeAgent) dispatch({ type: 'agent/setActiveAgent', payload: activeSession.agent });
+  }, [activeSession?.agent, activeAgent, dispatch]);
 
   // Initialize and synchronize authentication session on startup
   useEffect(() => {
@@ -65,13 +76,12 @@ export const App = () => {
 
   // Execute Agent task via API Gateway
   const handleExecuteAgent = async (prompt) => {
+    const sessionId = activeSession?.id;
+    if (!sessionId) return;
+    const pluginDraft = activeAgent === 'chat' ? createPluginDraft(prompt) : null;
     // Optimistic user message in chat
     dispatch(
-      addMessage({
-        role: 'user',
-        agent: activeAgent,
-        content: prompt,
-      })
+      appendSessionMessage({ sessionId, message: { role: 'user', agent: activeAgent, content: prompt, ...(pluginDraft ? { data: { pluginDraft } } : {}) } })
     );
 
     dispatch(setLoading(true));
@@ -81,7 +91,9 @@ export const App = () => {
         prompt,
         agentMode: activeAgent,
         model: selectedModel || 'auto',
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        providerConfig: getSavedProviderConfig(selectedModel),
+        connectedPlugins: getEnabledIntegrations(),
+        messages: messages.filter((m) => m.role === 'user' || m.role === 'assistant').map((m) => ({ role: m.role, content: m.content })),
       });
 
       const { data, remainingCredits } = response.data;
@@ -98,37 +110,38 @@ export const App = () => {
 
       // Add assistant response
       dispatch(
-        addMessage({
-          role: 'assistant',
-          agent: data.agent || activeAgent,
-          content: data.content,
-          data,
-        })
+        appendSessionMessage({ sessionId, message: { role: 'assistant', agent: data.agent || activeAgent, content: data.content, data } })
       );
 
-      // Store artifact based on agent mode
-      if (data.sandboxCode) {
-        dispatch(setActiveArtifact({ type: 'code', code: data.sandboxCode }));
-      } else if (data.slides) {
-        dispatch(setActiveArtifact({ type: 'ppt', slides: data.slides }));
-      } else if (data.documentMarkdown) {
-        dispatch(setActiveArtifact({ type: 'pdf', markdown: data.documentMarkdown }));
-      } else if (data.imageUrl) {
-        dispatch(setActiveArtifact({ type: 'image', ...data }));
-      }
     } catch (err) {
       console.error('Agent execution error:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Agent execution failed.';
       dispatch(
-        addMessage({
-          role: 'assistant',
-          agent: activeAgent,
-          content: `⚠️ **Execution Error:** ${errorMsg}`,
-        })
+        appendSessionMessage({ sessionId, message: { role: 'assistant', agent: activeAgent, content: `⚠️ **Execution Error:** ${errorMsg}` } })
       );
     } finally {
       dispatch(setLoading(false));
     }
+  };
+
+  const handlePluginAction = async (draft) => {
+    const response = await api.post('/agents/plugins/action', {
+      type: draft.type,
+      payload: draft,
+      pluginConfig: getPluginConfigs(),
+    });
+    return response.data;
+  };
+
+  const handleNewSession = () => {
+    dispatch(addSession({ agent: 'chat', title: 'New Chat' }));
+    dispatch({ type: 'agent/setActiveAgent', payload: 'chat' });
+    setSection('workspace');
+  };
+
+  const handleSelectSession = (sessionId) => {
+    dispatch(switchSession(sessionId));
+    setSection('workspace');
   };
 
   // Render view corresponding to selected agent
@@ -174,6 +187,8 @@ export const App = () => {
             messages={messages}
             isLoading={isLoading}
             onSendMessage={handleExecuteAgent}
+            onPluginAction={handlePluginAction}
+            onNavigate={setSection}
           />
         );
     }
@@ -187,7 +202,12 @@ export const App = () => {
       {/* Main Body Area */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
         {/* Left Sidebar */}
-        <Sidebar />
+        <Sidebar
+          section={section}
+          onNavigate={setSection}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+        />
 
         {/* Dynamic Workspace Container */}
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100/60 dark:bg-dark-900/40 relative">
@@ -202,7 +222,7 @@ export const App = () => {
 
           {/* Active Workspace View */}
           <div className="flex-1 overflow-hidden">
-            {renderWorkspaceView()}
+            {section === 'settings' ? <SettingsPage /> : section === 'api' ? <ApiPluginsPage /> : renderWorkspaceView()}
           </div>
         </main>
       </div>

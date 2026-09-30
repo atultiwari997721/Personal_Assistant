@@ -14,10 +14,12 @@ import {
 } from 'lucide-react';
 import { AVAILABLE_MODELS, setSelectedModel } from '../store/agentSlice.js';
 import api from '../services/api.js';
+import { getProviderConfigs } from '../services/providerSettings.js';
 
 const MODEL_ICONS = {
   'auto': Sparkles,
   'openai': Cloud,
+  'xai': Sparkles,
   'gemini': Globe,
   'nvidia': Cpu,
   'groq': Zap,
@@ -41,13 +43,19 @@ export const ModelSelector = () => {
     const refreshProviders = () => {
       api.get('/agents/providers')
         .then((response) => {
-          if (active) setProviderStates(Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider])));
+          if (!active) return;
+          const states = Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider]));
+          Object.entries(getProviderConfigs()).forEach(([id, config]) => {
+            if (config?.model && (config.apiKey || id === 'ollama')) states[id] = { ...(states[id] || {}), configured: true, status: 'ready', model: config.model };
+          });
+          setProviderStates(states);
         })
         .catch(() => {});
     };
     refreshProviders();
     const timer = window.setInterval(refreshProviders, 10000);
-    return () => { active = false; window.clearInterval(timer); };
+    window.addEventListener('kritiai:providers-updated', refreshProviders);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('kritiai:providers-updated', refreshProviders); };
   }, []);
 
   // Older builds persisted concrete model IDs (including Ollama) even when
@@ -88,11 +96,11 @@ export const ModelSelector = () => {
       {isOpen && (
         <div className="absolute right-0 sm:left-0 mt-2 w-80 max-h-96 overflow-y-auto origin-top-left rounded-2xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-dark-750 shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-100">
           <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-dark-800 sticky top-0 bg-white/95 dark:bg-dark-900/95 backdrop-blur-sm z-10">
-            AI provider (configured on the agent service)
+            AI provider
           </div>
           {Object.keys(providerStates).length > 0 && !Object.values(providerStates).some((provider) => provider.configured) && (
             <div className="mx-2 my-2 rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
-              No AI provider is configured. Add a provider API key and model to the agent service, or start Ollama and set <code>OLLAMA_MODEL</code>, then restart the service.
+              No AI provider is configured. Add a provider key in API &amp; Plugins, or start Ollama and set <code>OLLAMA_MODEL</code>.
             </div>
           )}
           {AVAILABLE_MODELS.map((model) => {

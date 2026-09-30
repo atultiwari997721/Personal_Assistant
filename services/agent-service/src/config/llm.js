@@ -1,8 +1,14 @@
 import dns from 'dns';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { ChatOpenAI } from '@langchain/openai';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import dotenv from 'dotenv';
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+// The app's single local configuration lives in the repository root. Resolve it
+// explicitly so both `start-dev.js` and direct service starts behave alike.
+dotenv.config({ path: path.resolve(here, '../../../../.env'), override: true });
 dotenv.config();
 
 try {
@@ -22,6 +28,13 @@ const PROVIDER_DEFINITIONS = [
     modelEnv: 'OPENAI_MODEL',
     baseUrlEnv: 'OPENAI_BASE_URL',
     defaultBaseUrl: 'https://api.openai.com/v1',
+  },
+  {
+    id: 'xai',
+    name: 'xAI (Grok)',
+    keyEnv: 'XAI_API_KEY',
+    modelEnv: 'XAI_MODEL',
+    defaultBaseUrl: 'https://api.x.ai/v1',
   },
   {
     id: 'gemini',
@@ -119,15 +132,33 @@ export const getConfiguredProviders = () => providerConfigurations().map(({ id, 
   local,
 }));
 
-export const getModelIdentity = (requestedModel = 'auto') => {
-  const provider = getActiveProvider(requestedModel);
+export const getModelIdentity = (requestedModel = 'auto', providerConfig) => {
+  const provider = getActiveProvider(requestedModel, providerConfig);
   return provider ? { provider: provider.id, model: provider.model } : null;
 };
 
-export const getActiveProvider = (requestedModel = 'auto') => {
+export const getActiveProvider = (requestedModel = 'auto', providerConfig) => {
   const requested = (requestedModel || 'auto').toLowerCase();
   const selectedProvider = LEGACY_MODEL_PROVIDER[requested] || requested.replace(/^provider:/, '');
   const configurations = providerConfigurations();
+
+  const configuredByUser = providerConfig?.provider === selectedProvider && (providerConfig?.apiKey || selectedProvider === 'ollama') && providerConfig?.model
+    ? {
+        id: selectedProvider,
+        name: PROVIDER_DEFINITIONS.find((item) => item.id === selectedProvider)?.name || selectedProvider,
+        configured: true,
+        status: 'ready',
+        model: String(providerConfig.model).trim(),
+        apiKey: String(providerConfig.apiKey || 'ollama').trim(),
+        baseURL: String(providerConfig.baseURL || '').trim() || PROVIDER_DEFINITIONS.find((item) => item.id === selectedProvider)?.defaultBaseUrl,
+        local: selectedProvider === 'ollama',
+      }
+    : null;
+
+  if (requested === 'auto' && providerConfig?.provider && (providerConfig?.apiKey || providerConfig.provider === 'ollama') && providerConfig?.model) {
+    return getActiveProvider(providerConfig.provider, providerConfig);
+  }
+  if (configuredByUser) return configuredByUser;
 
   if (requested === 'auto') {
     const preferred = process.env.LLM_PROVIDER?.trim().toLowerCase();
@@ -157,8 +188,8 @@ export const getActiveProvider = (requestedModel = 'auto') => {
 
 export const hasValidLLMKey = () => providerConfigurations().some((provider) => provider.configured);
 
-export const getLangChainLLM = (temperature = 0.7, requestedModel = 'auto', timeout = 35000) => {
-  const provider = getActiveProvider(requestedModel);
+export const getLangChainLLM = (temperature = 0.7, requestedModel = 'auto', timeout = 35000, providerConfig) => {
+  const provider = getActiveProvider(requestedModel, providerConfig);
   if (!provider) return null;
 
   return new ChatOpenAI({
@@ -196,8 +227,9 @@ export const invokeLLM = async ({
   temperature = 0.7,
   model = 'auto',
   timeout = 35000,
+  providerConfig,
 }) => {
-  const provider = getActiveProvider(model);
+  const provider = getActiveProvider(model, providerConfig);
   if (!provider) {
     const error = new Error('No AI provider is configured. Configure an API key and model on the agent service, or configure Ollama locally.');
     error.code = 'AI_PROVIDER_NOT_CONFIGURED';
@@ -216,7 +248,7 @@ export const invokeLLM = async ({
   formatted.push(new HumanMessage(userPrompt));
 
   try {
-    const llm = getLangChainLLM(temperature, model, timeout);
+    const llm = getLangChainLLM(temperature, model, timeout, providerConfig);
     const response = await llm.invoke(formatted);
     const content = typeof response.content === 'string'
       ? response.content.trim()
@@ -233,7 +265,10 @@ export const invokeLLM = async ({
     return content;
   } catch (error) {
     if (error.code?.startsWith('AI_')) throw error;
-    console.error(`[LLM] ${provider.id} request failed`, { status: error?.status || error?.response?.status });
+    console.error(`[LLM] ${provider.id} request failed`, {
+      status: error?.status || error?.response?.status,
+      cause: error?.cause?.message || error?.message || 'Unknown provider error',
+    });
     throw toProviderError(error, provider);
   }
 };

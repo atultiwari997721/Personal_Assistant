@@ -1,6 +1,29 @@
 import { executeAgentGraph } from '../graph/orchestrator.js';
 import { generatePptxBuffer } from '../utils/pptxGenerator.js';
 import { generatePdfBuffer } from '../utils/pdfGenerator.js';
+import { invokeLLM } from '../config/llm.js';
+
+export const testProviderConnection = async (req, res) => {
+  try {
+    const providerConfig = req.body?.providerConfig;
+    const provider = providerConfig?.provider;
+    if (!provider || (!providerConfig?.apiKey && provider !== 'ollama') || !providerConfig?.model) {
+      return res.status(400).json({ success: false, message: 'Provider, API key, and model ID are required.' });
+    }
+    const content = await invokeLLM({
+      systemPrompt: 'You are checking an AI provider connection. Reply with the single word OK.',
+      userPrompt: 'Reply with OK.',
+      model: provider,
+      providerConfig,
+      temperature: 0,
+      timeout: 20000,
+    });
+    return res.json({ success: true, provider, model: providerConfig.model, response: content.slice(0, 40) });
+  } catch (error) {
+    console.error('[Agent Service] Provider check failed:', { code: error.code, provider: error.provider, status: error.status });
+    return res.status(400).json({ success: false, code: error.code || 'AI_PROVIDER_REQUEST_FAILED', message: error.message });
+  }
+};
 
 export const AGENT_SPECS = [
   {
@@ -50,7 +73,7 @@ export const AGENT_SPECS = [
 // POST /api/agents/execute
 export const runAgentTask = async (req, res) => {
   try {
-    const { prompt, agentMode = 'chat', messages = [], model = 'auto' } = req.body;
+    const { prompt, agentMode = 'chat', messages = [], model = 'auto', providerConfig, connectedPlugins = [] } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Prompt is required.' });
@@ -60,6 +83,8 @@ export const runAgentTask = async (req, res) => {
       userPrompt: prompt,
       agentMode,
       model,
+      providerConfig,
+      connectedPlugins,
       messages,
     });
 

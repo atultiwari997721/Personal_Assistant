@@ -3,6 +3,42 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Copy, Check, Bot, User, Sparkles, Send } from 'lucide-react';
 import ModelSelector from './ModelSelector.jsx';
+import api from '../services/api.js';
+import { getPluginConfigs } from '../services/pluginActions.js';
+
+const ACTION_NAMES = { gmail: 'Gmail', calendar: 'Google Calendar', whatsapp: 'WhatsApp' };
+
+const PluginActionCard = ({ draft, onConfirm, onNavigate }) => {
+  const [fields, setFields] = useState(draft);
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+  const configs = getPluginConfigs();
+  const connected = draft.type === 'whatsapp'
+    ? Boolean(configs.whatsapp?.accessToken && configs.whatsapp?.phoneNumberId)
+    : Boolean(configs.google?.accessToken);
+  const required = draft.type === 'calendar'
+    ? Boolean(fields.title && fields.startsAt && fields.endsAt)
+    : Boolean(fields.to && fields.body && (draft.type !== 'gmail' || fields.subject));
+  const update = (key, value) => setFields((state) => ({ ...state, [key]: value }));
+  const controlClass = 'w-full rounded-lg border border-slate-300 dark:border-dark-700 bg-white dark:bg-dark-950 px-3 py-2 text-xs';
+  const label = (name, key, options = {}) => <label key={key} className="block text-xs font-medium text-slate-600 dark:text-slate-300">{name}<input type={options.type || 'text'} value={fields[key] || ''} onChange={(event) => update(key, event.target.value)} className={`${controlClass} mt-1`} /></label>;
+  const submit = async () => {
+    setBusy(true); setStatus('Sending…');
+    try {
+      const result = await onConfirm(fields);
+      setStatus(result.message || 'Action completed.');
+    } catch (error) {
+      setStatus(error.response?.data?.message || error.message || 'Could not complete action.');
+    } finally { setBusy(false); }
+  };
+
+  return <div className="mt-4 rounded-xl border border-sky-500/30 bg-sky-500/5 p-3.5 space-y-3">
+    <div className="flex items-center justify-between gap-2"><div><p className="font-semibold text-xs text-slate-800 dark:text-slate-100">{ACTION_NAMES[draft.type]} action draft</p><p className="text-[11px] text-slate-500 mt-0.5">Review the details. KritiAI waits for your confirmation.</p></div><span className="text-[10px] rounded-full px-2 py-1 bg-slate-100 dark:bg-dark-800">{connected ? 'Connected details saved' : 'Not connected'}</span></div>
+    {draft.type === 'calendar' ? <div className="grid sm:grid-cols-3 gap-2">{label('Event title', 'title')}{label('Starts', 'startsAt', { type: 'datetime-local' })}{label('Ends', 'endsAt', { type: 'datetime-local' })}</div> : <div className="grid sm:grid-cols-2 gap-2">{label(draft.type === 'whatsapp' ? 'Phone number (include country code)' : 'Recipient email', 'to')}{draft.type === 'gmail' && label('Subject', 'subject')}<label className="block text-xs font-medium text-slate-600 dark:text-slate-300 sm:col-span-2">Message<input value={fields.body || ''} onChange={(event) => update('body', event.target.value)} className={`${controlClass} mt-1`} /></label></div>}
+    {connected ? <button type="button" disabled={!required || busy || status.endsWith('sent.') || status.endsWith('created.')} onClick={submit} className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-white">{busy ? 'Working…' : draft.type === 'calendar' ? 'Confirm and create event' : 'Confirm and send'}</button> : <button type="button" onClick={() => onNavigate('api')} className="rounded-lg bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white">Connect in API &amp; Plugins</button>}
+    {status && <p role="status" className="text-xs text-slate-600 dark:text-slate-300">{status}</p>}
+  </div>;
+};
 
 const CodeBlock = ({ inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
@@ -42,7 +78,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   );
 };
 
-export const ChatView = ({ messages, isLoading, onSendMessage }) => {
+export const ChatView = ({ messages, isLoading, onSendMessage, onPluginAction, onNavigate = () => {} }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -126,6 +162,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
                     {msg.content}
                   </ReactMarkdown>
                 </div>
+                {isUser && msg.data?.pluginDraft && <PluginActionCard draft={msg.data.pluginDraft} onConfirm={onPluginAction} onNavigate={onNavigate} />}
               </div>
             </div>
           );
@@ -161,7 +198,7 @@ export const ChatView = ({ messages, isLoading, onSendMessage }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && localStorage.getItem('kritiai_enter_to_send') !== 'false') {
                 e.preventDefault();
                 handleSubmit(e);
               }

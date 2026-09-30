@@ -2,12 +2,13 @@ import { invokeLLM, getModelIdentity } from '../config/llm.js';
 
 export const PDF_SYSTEM_PROMPT = `You are KritiAI's document assistant. Draft clear, useful documents in Markdown. Never fabricate research findings, metrics, references, or verification. Mark assumptions and ask for missing facts when needed.`;
 
-export const runPdfAgent = async (userPrompt, model = 'auto') => {
+export const runPdfAgent = async (userPrompt, model = 'auto', providerConfig) => {
   const content = await invokeLLM({
     systemPrompt: PDF_SYSTEM_PROMPT,
     userPrompt: `Create the document requested here: "${userPrompt}"`,
     temperature: 0.4,
     model,
+    providerConfig,
     timeout: 30000,
   });
 
@@ -21,6 +22,6 @@ export const runPdfAgent = async (userPrompt, model = 'auto') => {
     agent: 'pdf',
     content,
     documentMarkdown: content,
-    metadata: { ...getModelIdentity(model), timestamp: new Date() },
+    metadata: { ...getModelIdentity(model, providerConfig), timestamp: new Date() },
   };
 };

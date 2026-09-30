@@ -1,11 +1,13 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setActiveAgent } from '../store/agentSlice.js';
+import { setSessionAgent } from '../store/sessionSlice.js';
 import { AGENT_MODES } from './Sidebar.jsx';
 
 export const AgentSelector = () => {
   const dispatch = useDispatch();
   const { activeAgent } = useSelector((state) => state.agent);
+  const { activeSessionId } = useSelector((state) => state.session);
 
   return (
     <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-2xl overflow-x-auto max-w-fit shadow-sm transition-colors">
@@ -15,7 +17,10 @@ export const AgentSelector = () => {
         return (
           <button
             key={mode.id}
-            onClick={() => dispatch(setActiveAgent(mode.id))}
+            onClick={() => {
+              dispatch(setActiveAgent(mode.id));
+              dispatch(setSessionAgent({ sessionId: activeSessionId, agent: mode.id }));
+            }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
               isSelected
                 ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'

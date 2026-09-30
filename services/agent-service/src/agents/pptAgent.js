@@ -2,12 +2,13 @@ import { invokeLLM, getModelIdentity } from '../config/llm.js';
 
 export const PPT_SYSTEM_PROMPT = `You are KritiAI's presentation assistant. Return a JSON array of slide objects. Each object must contain slide_number, title, bullet_points (array of strings), and speaker_notes. Do not invent facts, sources, or market metrics; label assumptions clearly.`;
 
-export const runPptAgent = async (userPrompt, model = 'auto') => {
+export const runPptAgent = async (userPrompt, model = 'auto', providerConfig) => {
   const rawOutput = await invokeLLM({
     systemPrompt: PPT_SYSTEM_PROMPT,
     userPrompt: `Create a presentation outline for this request: "${userPrompt}". Return only the JSON array.`,
     temperature: 0.3,
     model,
+    providerConfig,
     timeout: 30000,
   });
 
@@ -36,6 +37,6 @@ export const runPptAgent = async (userPrompt, model = 'auto') => {
     agent: 'ppt',
     slides,
     content: `Presentation prepared with ${slides.length} slides. Review it before exporting.`,
-    metadata: { ...getModelIdentity(model), timestamp: new Date() },
+    metadata: { ...getModelIdentity(model, providerConfig), timestamp: new Date() },
   };
 };

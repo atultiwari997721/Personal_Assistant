@@ -65,7 +65,7 @@ app.post(
   async (req, res) => {
     try {
       const uid = req.user?.uid;
-      const { prompt, agentMode, messages, model = 'auto' } = req.body;
+      const { prompt, agentMode, messages, model = 'auto', providerConfig, connectedPlugins = [] } = req.body;
 
       // Forward task execution to Agent Service
       const agentRes = await axios.post(`${AGENT_SERVICE_URL}/api/agents/execute`, {
@@ -73,6 +73,8 @@ app.post(
         agentMode,
         messages,
         model,
+        providerConfig,
+        connectedPlugins,
       });
 
       // Task succeeded! Deduct 1 credit atomically

@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Automatic', badge: 'AUTO', desc: 'Use the first configured provider or LLM_PROVIDER preference.' },
   { id: 'openai', name: 'OpenAI', badge: 'PROVIDER', desc: 'Uses OPENAI_API_KEY and OPENAI_MODEL on the agent service.' },
+  { id: 'xai', name: 'xAI (Grok)', badge: 'PROVIDER', desc: 'Uses your Grok API key and model ID.' },
   { id: 'gemini', name: 'Google Gemini', badge: 'PROVIDER', desc: 'Uses GEMINI_API_KEY and GEMINI_MODEL on the agent service.' },
   { id: 'nvidia', name: 'NVIDIA NIM', badge: 'PROVIDER', desc: 'Uses NVIDIA_API_KEY and NVIDIA_MODEL on the agent service.' },
   { id: 'groq', name: 'Groq', badge: 'PROVIDER', desc: 'Uses GROQ_API_KEY and GROQ_MODEL on the agent service.' },
@@ -54,6 +55,7 @@ const agentSlice = createSlice({
       state.selectedModel = action.payload;
       try {
         localStorage.setItem('cortex_selected_model', action.payload);
+        localStorage.setItem('kritiai_default_provider', action.payload);
       } catch (e) {}
     },
     addMessage: (state, action) => {

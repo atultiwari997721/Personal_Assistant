@@ -13,4 +13,12 @@ export const store = configureStore({
   },
 });
 
+store.subscribe(() => {
+  try {
+    localStorage.setItem('kritiai_sessions', JSON.stringify(store.getState().session.sessions));
+  } catch (error) {
+    console.warn('Could not save local chat history:', error?.message || error);
+  }
+});
+
 export default store;

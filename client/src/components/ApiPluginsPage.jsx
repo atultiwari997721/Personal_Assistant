@@ -1,0 +1,129 @@
+import React, { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { CheckCircle2, Circle, Eye, EyeOff, Plug, Save, ShieldCheck, Wifi, LoaderCircle } from 'lucide-react';
+import { AVAILABLE_MODELS, setSelectedModel } from '../store/agentSlice.js';
+import { getProviderConfigs, saveProviderConfig } from '../services/providerSettings.js';
+import api from '../services/api.js';
+
+const PROVIDER_URLS = {
+  openai: 'https://api.openai.com/v1',
+  xai: 'https://api.x.ai/v1',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  nvidia: 'https://integrate.api.nvidia.com/v1',
+  groq: 'https://api.groq.com/openai/v1',
+  huggingface: 'https://router.huggingface.co/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  ollama: 'http://127.0.0.1:11434/v1',
+};
+const MODEL_LIST = AVAILABLE_MODELS.filter((model) => model.id !== 'auto');
+
+const readPlugins = () => {
+  try { return JSON.parse(localStorage.getItem('kritiai_plugin_configs') || '{}'); } catch { return {}; }
+};
+
+function ProviderCard({ model, provider, onSave }) {
+  const [config, setConfig] = useState({ apiKey: '', model: '', baseURL: PROVIDER_URLS[model.id] });
+  const [showKey, setShowKey] = useState(false);
+  const [status, setStatus] = useState('');
+  const [testing, setTesting] = useState(false);
+  useEffect(() => {
+    const saved = getProviderConfigs()[model.id];
+    setConfig({ apiKey: saved?.apiKey || '', model: saved?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] });
+  }, [model.id]);
+  const isLocal = model.id === 'ollama';
+  const saved = (config.apiKey || isLocal) && config.model;
+
+  const save = () => {
+    onSave(model.id, config);
+    setStatus(saved ? 'Saved in this browser.' : 'Enter a model ID and API key first.');
+  };
+  const test = async () => {
+    if (!saved) return setStatus('Save a model ID and API key first.');
+    setTesting(true); setStatus('Checking connection…');
+    try {
+      const providerConfig = { provider: model.id, ...config, apiKey: config.apiKey || 'ollama' };
+      const response = await api.post('/agents/providers/test', { providerConfig }, { timeout: 25000 });
+      setStatus(`Connected: ${response.data.model}`);
+    } catch (error) {
+      setStatus(error.response?.data?.message || error.message || 'Connection check failed.');
+    } finally { setTesting(false); }
+  };
+
+  return <article className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
+    <div className="flex items-start justify-between gap-3 mb-4">
+      <div><h3 className="font-semibold">{model.name}</h3><p className="text-xs text-slate-500 mt-1">Use this provider across Chat and every agent.</p></div>
+      <span className={`text-[11px] rounded-full px-2.5 py-1 border ${saved ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{saved ? 'Configured' : 'Not configured'}</span>
+    </div>
+    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model ID</label>
+    <input value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} placeholder="Enter the model ID from your provider" className="w-full mb-3 rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
+    {!isLocal && <>
+      <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API key</label>
+      <div className="relative mb-3"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+    </>}
+    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API endpoint</label>
+    <input value={config.baseURL} onChange={(e) => setConfig({ ...config, baseURL: e.target.value })} placeholder={PROVIDER_URLS[model.id]} className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <button type="button" onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Save className="w-3.5 h-3.5" />Save</button>
+      <button type="button" onClick={test} disabled={testing || !saved} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
+      {saved && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed saved provider credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
+    </div>
+    {status && <p role="status" className="text-xs mt-3 text-slate-500 dark:text-slate-400">{status}</p>}
+  </article>;
+}
+
+export default function ApiPluginsPage() {
+  const dispatch = useDispatch();
+  const [tab, setTab] = useState('api');
+  const [pluginConfig, setPluginConfig] = useState(readPlugins);
+  const [message, setMessage] = useState('');
+
+  const saveProvider = (provider, config) => {
+    saveProviderConfig(provider, config);
+    if (config?.model) dispatch(setSelectedModel(provider));
+    else if (localStorage.getItem('kritiai_default_provider') === provider) {
+      localStorage.setItem('kritiai_default_provider', 'auto');
+      dispatch(setSelectedModel('auto'));
+    }
+    window.dispatchEvent(new Event('kritiai:providers-updated'));
+  };
+  const savePlugins = (next) => {
+    setPluginConfig(next);
+    localStorage.setItem('kritiai_plugin_configs', JSON.stringify(next));
+    setMessage('Connection details saved on this device.');
+    window.setTimeout(() => setMessage(''), 3500);
+  };
+
+  const setPluginField = (plugin, field, value) => setPluginConfig((state) => ({ ...state, [plugin]: { ...state[plugin], [field]: value } }));
+  const connectionCard = (id, name, description, fields) => {
+    const current = pluginConfig[id] || {};
+    const connected = Boolean(fields.every((field) => current[field.key]?.trim()));
+    return <article key={id} className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3 mb-3"><div><h3 className="font-semibold">{name}</h3><p className="text-xs text-slate-500 mt-1">{description}</p></div><span className={`text-[11px] rounded-full px-2.5 py-1 border ${connected ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{connected ? 'Details saved' : 'Setup needed'}</span></div>
+      {fields.map((field) => <label key={field.key} className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-3">{field.label}<input type={field.secret ? 'password' : 'text'} value={current[field.key] || ''} onChange={(e) => setPluginField(id, field.key, e.target.value)} placeholder={field.placeholder} autoComplete="off" className="mt-1.5 w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" /></label>)}
+      <button type="button" onClick={() => savePlugins(pluginConfig)} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Plug className="w-3.5 h-3.5" />Save connection</button>
+    </article>;
+  };
+
+  return <div className="h-full overflow-y-auto p-5 md:p-8"><div className="max-w-4xl mx-auto space-y-6">
+    <header><p className="text-xs uppercase tracking-widest text-sky-500 font-bold">Connections</p><h1 className="text-2xl font-bold mt-1">API &amp; Plugins</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Add model providers and connect services you use every day.</p></header>
+    <div role="tablist" className="inline-flex rounded-xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-1"><button role="tab" aria-selected={tab === 'api'} onClick={() => setTab('api')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'api' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>API</button><button role="tab" aria-selected={tab === 'plugins'} onClick={() => setTab('plugins')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'plugins' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>Plugins</button></div>
+    {tab === 'api' ? <>
+      <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-slate-600 dark:text-slate-300 flex gap-3"><ShieldCheck className="w-5 h-5 text-sky-500 shrink-0" /><span>Keys are saved in this browser and included only when you use that provider. Each provider’s own API billing and limits apply. Ollama runs on your configured local endpoint.</span></div>
+      <div className="grid gap-4">{MODEL_LIST.map((model) => <ProviderCard key={model.id} model={model} onSave={saveProvider} />)}</div>
+    </> : <>
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">Connections are stored on this device. Google API access tokens must include Gmail send and/or Calendar event scopes. WhatsApp requires a Meta Cloud API access token and phone number ID. Chat will ask before sending or creating anything.</div>
+      <div className="grid gap-4">
+        {connectionCard('google', 'Gmail & Google Calendar', 'Connect Google APIs using an access token created for your Google account.', [
+          { key: 'accessToken', label: 'Google access token', secret: true, placeholder: 'Paste Google OAuth access token' },
+        ])}
+        {connectionCard('whatsapp', 'WhatsApp', 'Connect a WhatsApp Business Cloud API sender.', [
+          { key: 'accessToken', label: 'Meta access token', secret: true, placeholder: 'Paste a WhatsApp Cloud API token' },
+          { key: 'phoneNumberId', label: 'WhatsApp phone number ID', placeholder: 'Phone Number ID from Meta' },
+          { key: 'apiVersion', label: 'Graph API version', placeholder: 'v22.0' },
+        ])}
+      </div>
+      <p role="status" className="text-sm text-emerald-600">{message}</p>
+      <p className="text-xs text-slate-500">Credentials are stored in this browser only. “Details saved” confirms local setup, not that the service token or permissions have been verified.</p>
+    </>}
+  </div></div>;
+}

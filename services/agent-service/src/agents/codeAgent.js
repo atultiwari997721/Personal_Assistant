@@ -26,13 +26,14 @@ export const extractRunnableCode = (text = '') => {
   };
 };
 
-export const runCodeAgent = async (userPrompt, model = 'auto') => {
+export const runCodeAgent = async (userPrompt, model = 'auto', providerConfig) => {
   const content = await invokeLLM({
     systemPrompt: CODE_SYSTEM_PROMPT,
     userPrompt: `User request: "${userPrompt}"\n\nAddress the request specifically. Put runnable code in a labeled fenced block. Do not claim the code was applied, executed, or tested.`,
     temperature: 0.2,
     model,
-    timeout: 40000,
+    timeout: 120000,
+    providerConfig,
   });
 
   const extracted = extractRunnableCode(content);
@@ -40,6 +41,6 @@ export const runCodeAgent = async (userPrompt, model = 'auto') => {
     agent: 'code',
     content,
     ...(extracted ? { sandboxCode: extracted.code, language: extracted.language } : {}),
-    metadata: { ...getModelIdentity(model), timestamp: new Date() },
+    metadata: { ...getModelIdentity(model, providerConfig), timestamp: new Date() },
   };
 };

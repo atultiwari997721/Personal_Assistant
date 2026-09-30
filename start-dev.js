@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 // Services run from their own directories, while local configuration belongs
 // in the repository root. Load it once and pass it to every child process.
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
 const services = [
   { name: 'Auth Service', dir: 'services/auth-service', cmd: 'node', args: ['src/server.js'], port: 8001 },

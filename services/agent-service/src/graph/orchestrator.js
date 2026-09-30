@@ -33,27 +33,27 @@ const routerNode = async (state) => {
 
 // 6 Dedicated Agent Execution Nodes
 const chatNode = async (state) => {
-  const result = await runChatAgent(state.messages, state.userPrompt, state.model);
+  const result = await runChatAgent(state.messages, state.userPrompt, state.model, state.providerConfig, state.connectedPlugins);
   return { result };
 };
 
 const searchNode = async (state) => {
-  const result = await runSearchAgent(state.userPrompt, state.model);
+  const result = await runSearchAgent(state.userPrompt, state.model, state.providerConfig);
   return { result };
 };
 
 const codeNode = async (state) => {
-  const result = await runCodeAgent(state.userPrompt, state.model);
+  const result = await runCodeAgent(state.userPrompt, state.model, state.providerConfig);
   return { result };
 };
 
 const pdfNode = async (state) => {
-  const result = await runPdfAgent(state.userPrompt, state.model);
+  const result = await runPdfAgent(state.userPrompt, state.model, state.providerConfig);
   return { result };
 };
 
 const pptNode = async (state) => {
-  const result = await runPptAgent(state.userPrompt, state.model);
+  const result = await runPptAgent(state.userPrompt, state.model, state.providerConfig);
   return { result };
 };
 
@@ -92,6 +92,8 @@ export const buildOrchestratorGraph = () => {
       userPrompt: { value: (x, y) => y ?? x, default: () => '' },
       agentMode: { value: (x, y) => y ?? x, default: () => 'chat' },
       model: { value: (x, y) => y ?? x, default: () => 'auto' },
+      providerConfig: { value: (x, y) => y ?? x, default: () => null },
+      connectedPlugins: { value: (x, y) => y ?? x, default: () => [] },
       messages: { value: (x, y) => y ?? x, default: () => [] },
       result: { value: (x, y) => y ?? x, default: () => null },
     },
@@ -125,12 +127,14 @@ export const buildOrchestratorGraph = () => {
 };
 
 // Execution helper
-export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto' }) => {
+export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto', providerConfig, connectedPlugins = [] }) => {
   const graph = buildOrchestratorGraph();
   const finalState = await graph.invoke({
     userPrompt,
     agentMode,
     model,
+    providerConfig,
+    connectedPlugins,
     messages: messages || [],
   });
   return finalState.result;

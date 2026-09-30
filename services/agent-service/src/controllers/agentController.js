@@ -2,6 +2,34 @@ import { executeAgentGraph } from '../graph/orchestrator.js';
 import { generatePptxBuffer } from '../utils/pptxGenerator.js';
 import { generatePdfBuffer } from '../utils/pdfGenerator.js';
 import { invokeLLM } from '../config/llm.js';
+import axios from 'axios';
+import { getActiveProvider } from '../config/llm.js';
+
+export const listProviderModels = async (req, res) => {
+  try {
+    const providerConfig = req.body?.providerConfig;
+    const provider = providerConfig?.provider || req.body?.provider;
+    if (!provider) return res.status(400).json({ success: false, message: 'Choose a provider first.' });
+    const active = getActiveProvider(provider, providerConfig ? { ...providerConfig, model: providerConfig.model || '__auto_discover__' } : undefined);
+    const response = await axios.get(`${active.baseURL.replace(/\/$/, '')}/models`, {
+      headers: { Authorization: `Bearer ${active.apiKey}`, 'Content-Type': 'application/json' },
+      timeout: 20000,
+    });
+    const rawModels = response.data?.data || response.data?.models || [];
+    const models = rawModels.map((item) => typeof item === 'string' ? item : item?.id || item?.name).filter(Boolean);
+    if (!models.length) return res.status(400).json({ success: false, message: 'The provider returned no model list. Check the API key and endpoint.' });
+    const preferred = provider === 'groq'
+      ? ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b']
+      : provider === 'gemini' ? ['gemini-2.5-flash', 'gemini-2.0-flash']
+        : provider === 'openai' ? ['gpt-4.1-mini', 'gpt-4o-mini']
+          : [];
+    const recommended = preferred.find((id) => models.includes(id)) || models.find((id) => /gpt|grok|gemini|llama|qwen|claude/i.test(id) && !/embed|audio|whisper|moderation|realtime/i.test(id)) || models[0];
+    return res.json({ success: true, provider, models, recommended });
+  } catch (error) {
+    const message = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Could not read the provider model list.';
+    return res.status(400).json({ success: false, code: error.code || 'AI_PROVIDER_MODELS_FAILED', message });
+  }
+};
 
 export const testProviderConnection = async (req, res) => {
   try {

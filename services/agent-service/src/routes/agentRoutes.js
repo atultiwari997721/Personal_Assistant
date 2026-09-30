@@ -5,6 +5,7 @@ import {
   exportPdf,
   getAgentList,
   testProviderConnection,
+  listProviderModels,
 } from '../controllers/agentController.js';
 import { getConfiguredProviders } from '../config/llm.js';
 import { runPluginAction } from '../controllers/pluginController.js';
@@ -14,6 +15,7 @@ const router = express.Router();
 router.get('/spec', getAgentList);
 router.get('/providers', (_req, res) => res.json({ providers: getConfiguredProviders() }));
 router.post('/providers/test', testProviderConnection);
+router.post('/providers/models', listProviderModels);
 router.post('/plugins/action', runPluginAction);
 router.post('/execute', runAgentTask);
 router.post('/export-pptx', exportPptx);

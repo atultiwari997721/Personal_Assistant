@@ -5,48 +5,65 @@ import { invokeLLM } from '../config/llm.js';
 import axios from 'axios';
 import { getActiveProvider } from '../config/llm.js';
 
+const FALLBACK_MODELS = {
+  openai: ['gpt-4.1-mini', 'gpt-4o-mini'], xai: ['grok-3-mini', 'grok-2-latest'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.0-flash'], nvidia: ['meta/llama-3.3-70b-instruct', 'meta/llama-3.1-8b-instruct'],
+  groq: ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'],
+  huggingface: ['Qwen/Qwen2.5-Coder-32B-Instruct', 'meta-llama/Llama-3.3-70B-Instruct'],
+  openrouter: ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'],
+};
+
+const getProviderModelList = async (active) => {
+  const response = await axios.get(`${active.baseURL.replace(/\/$/, '')}/models`, {
+    headers: { Authorization: `Bearer ${active.apiKey}`, 'Content-Type': 'application/json' }, timeout: 8000,
+  });
+  const rawModels = response.data?.data || response.data?.models || [];
+  return rawModels.map((item) => typeof item === 'string' ? item : item?.id || item?.name).filter(Boolean)
+    .filter((id) => !/embed|audio|whisper|moderation|realtime|image/i.test(id));
+};
+
+const verifyModel = async (provider, active, providerConfig, model) => {
+  await invokeLLM({
+    systemPrompt: 'Reply with exactly OK.', userPrompt: 'OK', model: provider,
+    providerConfig: { ...providerConfig, provider, apiKey: active.apiKey, baseURL: active.baseURL, model },
+    temperature: 0, timeout: 8000,
+  });
+};
+
 export const listProviderModels = async (req, res) => {
   try {
     const providerConfig = req.body?.providerConfig;
     const provider = providerConfig?.provider || req.body?.provider;
     if (!provider) return res.status(400).json({ success: false, message: 'Choose a provider first.' });
     const active = getActiveProvider(provider, providerConfig ? { ...providerConfig, model: providerConfig.model || '__auto_discover__' } : undefined);
-    const fallbacks = {
-      openai: ['gpt-4.1-mini', 'gpt-4o-mini'], xai: ['grok-3-mini', 'grok-2-latest'],
-      gemini: ['gemini-2.5-flash', 'gemini-2.0-flash'], nvidia: ['meta/llama-3.3-70b-instruct', 'meta/llama-3.1-8b-instruct'],
-      groq: ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'],
-      huggingface: ['Qwen/Qwen2.5-Coder-32B-Instruct', 'meta-llama/Llama-3.3-70B-Instruct'],
-      openrouter: ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'],
-    }[provider] || [];
-    let listedModels = [];
-    try {
-      const response = await axios.get(`${active.baseURL.replace(/\/$/, '')}/models`, {
-        headers: { Authorization: `Bearer ${active.apiKey}`, 'Content-Type': 'application/json' }, timeout: 12000,
-      });
-      const rawModels = response.data?.data || response.data?.models || [];
-      listedModels = rawModels.map((item) => typeof item === 'string' ? item : item?.id || item?.name).filter(Boolean)
-        .filter((id) => !/embed|audio|whisper|moderation|realtime|image/i.test(id));
-    } catch (error) {
-      // Some compatible providers do not expose /models. Verify known chat models directly below.
-      if ([401, 403].includes(error.response?.status)) throw error;
-    }
-    const preferred = provider === 'groq' ? ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b']
-      : provider === 'gemini' ? ['gemini-2.5-flash', 'gemini-2.0-flash']
-        : provider === 'openai' ? ['gpt-4.1-mini', 'gpt-4o-mini'] : [];
-    const candidateModels = [...new Set([
-      ...(preferred.filter((id) => listedModels.includes(id))),
-      ...(listedModels.length ? [listedModels.find((id) => /gpt|grok|gemini|llama|qwen|claude/i.test(id)) || listedModels[0]] : []),
-      ...(providerConfig?.model && providerConfig.model !== '__auto_discover__' ? [providerConfig.model] : []),
-      ...fallbacks,
-    ])];
+    const fallbacks = FALLBACK_MODELS[provider] || [];
     let lastError;
-    for (const candidate of candidateModels) {
+    // Probe known low-cost chat models first. This avoids providers whose optional
+    // /models endpoint is slow or absent while still requiring a real completion.
+    const explicitModel = providerConfig?.model && providerConfig.model !== '__auto_discover__' ? [providerConfig.model] : [];
+    for (const candidate of [...new Set([...explicitModel, ...fallbacks])]) {
       try {
-        await invokeLLM({ systemPrompt: 'Reply with exactly OK.', userPrompt: 'OK', model: provider, providerConfig: { ...providerConfig, provider, apiKey: active.apiKey, baseURL: active.baseURL, model: candidate }, temperature: 0, timeout: 10000 });
+        await verifyModel(provider, active, providerConfig, candidate);
+        return res.json({ success: true, provider, models: [], recommended: candidate, verified: true });
+      } catch (error) {
+        lastError = error;
+        if (['AI_PROVIDER_AUTH_FAILED', 'AI_PROVIDER_QUOTA_EXCEEDED', 'AI_PROVIDER_UNREACHABLE'].includes(error.code)) throw error;
+      }
+    }
+    let listedModels;
+    try { listedModels = await getProviderModelList(active); }
+    catch (error) {
+      if ([401, 403].includes(error.response?.status)) throw error;
+      if (!lastError && !error.response?.status) throw Object.assign(new Error(`${active.name} could not be reached. Check this device's internet connection or firewall.`), { code: 'AI_PROVIDER_UNREACHABLE' });
+    }
+    const candidates = (listedModels || []).filter((id) => /gpt|grok|gemini|llama|qwen|claude/i.test(id));
+    for (const candidate of candidates.slice(0, 3)) {
+      try {
+        await verifyModel(provider, active, providerConfig, candidate);
         return res.json({ success: true, provider, models: listedModels, recommended: candidate, verified: true });
       } catch (error) {
         lastError = error;
-        if (['AI_PROVIDER_AUTH_FAILED', 'AI_PROVIDER_QUOTA_EXCEEDED'].includes(error.code)) break;
+        if (['AI_PROVIDER_AUTH_FAILED', 'AI_PROVIDER_QUOTA_EXCEEDED', 'AI_PROVIDER_UNREACHABLE'].includes(error.code)) throw error;
       }
     }
     throw lastError || new Error('No working chat model was found for this provider.');

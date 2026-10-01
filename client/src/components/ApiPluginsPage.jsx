@@ -27,6 +27,13 @@ const API_KEY_LINKS = {
 };
 const MODEL_LIST = AVAILABLE_MODELS.filter((model) => model.id !== 'auto');
 
+const detectKeyProvider = (providerId, apiKey) => {
+  const value = apiKey?.trim() || '';
+  if (providerId === 'groq' && /^xai-/i.test(value)) return 'xai';
+  if (providerId === 'xai' && /^gsk_/i.test(value)) return 'groq';
+  return providerId;
+};
+
 const readPlugins = () => {
   try { return JSON.parse(localStorage.getItem('kritiai_plugin_configs') || '{}'); } catch { return {}; }
 };
@@ -54,22 +61,32 @@ function ProviderCard({ model, provider, onSave }) {
   const discoverAndSave = (sourceConfig = config, quiet = false) => {
     if (!sourceConfig.apiKey?.trim()) return false;
     if (discoveryPromise.current) return discoveryPromise.current;
-    if (!quiet) { setTesting(true); setStatus('Checking key and selecting a working model…'); }
+    const targetProvider = detectKeyProvider(model.id, sourceConfig.apiKey);
+    const targetName = MODEL_LIST.find((item) => item.id === targetProvider)?.name || targetProvider;
+    const targetConfig = { ...sourceConfig, baseURL: targetProvider === model.id ? sourceConfig.baseURL : PROVIDER_URLS[targetProvider] };
+    if (!quiet) { setTesting(true); setStatus(targetProvider === model.id ? 'Checking key and selecting a working model…' : `Recognized a ${targetName} key. Testing it with ${targetName}…`); }
     // Preserve the key while discovery runs, but never leave an unverified model
     // marked ready if a previous manually entered model ID was invalid.
-    saveProviderConfig(model.id, { ...sourceConfig, model: '' });
+    saveProviderConfig(targetProvider, { ...targetConfig, model: '' });
+    if (targetProvider !== model.id) {
+      saveProviderConfig(model.id, null);
+      onSave(model.id, null);
+    }
     discoveryPromise.current = (async () => {
       try {
-        const providerConfig = { provider: model.id, ...sourceConfig, model: sourceConfig.model || '__auto_discover__' };
+        const providerConfig = { provider: targetProvider, ...targetConfig, model: targetConfig.model || '__auto_discover__' };
         const response = await api.post('/agents/providers/models', { providerConfig }, { timeout: 65000 });
         const models = response.data.models || [];
-        const next = { ...sourceConfig, model: response.data.recommended || models[0] };
+        const next = { ...targetConfig, model: response.data.recommended || models[0] };
         setConfig(next);
-        onSave(model.id, next);
-        setStatus(`Connected. Automatically selected ${next.model}.`);
+        onSave(targetProvider, next);
+        setStatus(`Connected to ${targetName}. Automatically selected ${next.model}.`);
         return true;
-      } catch (error) {
-        setStatus(error.response?.data?.message || error.message || 'Could not validate the API key.');
+    } catch (error) {
+      const code = error.response?.data?.code;
+      setStatus(code === 'AI_PROVIDER_AUTH_FAILED'
+        ? `${targetName} rejected this API key (HTTP 401). Make sure it is an active ${targetName} API key. If it is correct, create a fresh key in the provider console and replace this one.`
+        : error.response?.data?.message || error.message || 'Could not validate the API key.'));
         return false;
       } finally { if (!quiet) setTesting(false); discoveryPromise.current = null; }
     })();
@@ -98,6 +115,11 @@ function ProviderCard({ model, provider, onSave }) {
   };
   const test = async () => {
     if (!config.apiKey?.trim() && !ready) return setStatus('Paste an API key first.');
+    const detectedProvider = detectKeyProvider(model.id, config.apiKey);
+    if (config.apiKey?.trim() && detectedProvider !== model.id) {
+      await discoverAndSave({ ...config, baseURL: PROVIDER_URLS[detectedProvider] });
+      return;
+    }
     setTesting(true); setStatus('Sending a live test prompt to the provider…');
     try {
       const providerConfig = config.apiKey?.trim()
@@ -111,7 +133,10 @@ function ProviderCard({ model, provider, onSave }) {
       onSave(model.id, connected);
       setStatus(`Connection verified with a live model response: ${connected.model}.`);
     } catch (error) {
-      setStatus(error.response?.data?.message || error.message || 'Connection check failed.');
+      const code = error.response?.data?.code;
+      setStatus(code === 'AI_PROVIDER_AUTH_FAILED'
+        ? `${model.name} rejected this API key (HTTP 401). Make sure it is active and was created in the ${model.name} console.`
+        : error.response?.data?.message || error.message || 'Connection check failed.');
     } finally { setTesting(false); }
   };
 

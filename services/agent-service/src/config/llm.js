@@ -197,6 +197,7 @@ export const getLangChainLLM = (temperature = 0.7, requestedModel = 'auto', time
     model: provider.model,
     temperature,
     timeout,
+    maxRetries: 0,
     configuration: { baseURL: provider.baseURL },
   });
 };
@@ -208,13 +209,15 @@ const toProviderError = (error, provider) => {
       ? `${provider.name} authentication failed. Check its API key.`
       : status === 429
         ? `${provider.name} quota or rate limit was reached.`
-        : `${provider.name} request failed${status ? ` (HTTP ${status})` : ''}.`,
+        : status
+          ? `${provider.name} request failed (HTTP ${status}).`
+          : `${provider.name} could not be reached. Check this device's internet connection, firewall, or provider endpoint.`,
   );
   mapped.code = status === 401 || status === 403
     ? 'AI_PROVIDER_AUTH_FAILED'
     : status === 429
       ? 'AI_PROVIDER_QUOTA_EXCEEDED'
-      : 'AI_PROVIDER_REQUEST_FAILED';
+      : status ? 'AI_PROVIDER_REQUEST_FAILED' : 'AI_PROVIDER_UNREACHABLE';
   mapped.provider = provider.id;
   mapped.status = status;
   return mapped;
@@ -267,7 +270,7 @@ export const invokeLLM = async ({
     if (error.code?.startsWith('AI_')) throw error;
     console.error(`[LLM] ${provider.id} request failed`, {
       status: error?.status || error?.response?.status,
-      cause: error?.cause?.message || error?.message || 'Unknown provider error',
+      cause: error?.cause?.cause?.message || error?.cause?.message || error?.message || 'Unknown provider error',
     });
     throw toProviderError(error, provider);
   }

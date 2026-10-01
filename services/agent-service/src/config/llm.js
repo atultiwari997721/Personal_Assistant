@@ -166,10 +166,9 @@ export const getActiveProvider = (requestedModel = 'auto', providerConfig) => {
       ? [...configurations.filter((provider) => provider.id === preferred), ...configurations.filter((provider) => provider.id !== preferred)]
       : configurations;
     // A configured Ollama model name does not prove that the local server is
-    // running. Only use it automatically when the operator explicitly chose
-    // Ollama; otherwise it can shadow a working user-supplied provider and
-    // turn every request into a connection-refused error.
-    return ordered.find((provider) => provider.configured && (!provider.local || preferred === provider.id)) || null;
+    // running. Automatic mode uses cloud providers only; the UI exposes
+    // Ollama for explicit selection after its live health check succeeds.
+    return ordered.find((provider) => provider.configured && !provider.local) || null;
   }
 
   const definition = PROVIDER_DEFINITIONS.find((provider) => provider.id === selectedProvider);

@@ -1,31 +1,11 @@
 import React, { useState } from 'react';
 import { Download, Sparkles, ExternalLink, Maximize2, X, Image as ImageIcon } from 'lucide-react';
 
-const DEFAULT_GALLERY = [
-  {
-    id: 'img-1',
-    prompt: 'Futuristic AI neural core floating in a cyberpunk server room',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&auto=format&fit=crop&q=80',
-    tags: ['Cyberpunk', 'Volumetric Lighting', '8K'],
-  },
-  {
-    id: 'img-2',
-    prompt: 'Autonomous drone fleet traversing neon metropolitan skyline',
-    url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1000&auto=format&fit=crop&q=80',
-    tags: ['Sci-Fi', 'Cinematic', 'Unreal Engine 5'],
-  },
-  {
-    id: 'img-3',
-    prompt: 'Minimalist glass geometric architecture in misty redwood forest',
-    url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=1000&auto=format&fit=crop&q=80',
-    tags: ['Architecture', 'Hyper-Realistic', 'Atmospheric'],
-  },
-];
-
 export const ImageGalleryView = ({ newImage, onRunAgentPrompt, isLoading }) => {
-  const [gallery, setGallery] = useState(DEFAULT_GALLERY);
+  const [gallery, setGallery] = useState([]);
   const [promptInput, setPromptInput] = useState('');
   const [selectedImg, setSelectedImg] = useState(null);
+  const [requestStatus, setRequestStatus] = useState('');
 
   React.useEffect(() => {
     if (newImage && newImage.imageUrl) {
@@ -41,11 +21,20 @@ export const ImageGalleryView = ({ newImage, onRunAgentPrompt, isLoading }) => {
     }
   }, [newImage]);
 
-  const handleGenerate = (e) => {
+  const handleGenerate = async (e) => {
     e.preventDefault();
     if (!promptInput.trim() || isLoading) return;
-    onRunAgentPrompt(promptInput.trim());
-    setPromptInput('');
+    setRequestStatus('');
+    try {
+      const result = await onRunAgentPrompt(promptInput.trim());
+      if (result?.error) setRequestStatus(result.error);
+      else if (result?.imageUrl) {
+        setPromptInput('');
+        setRequestStatus('Image generated and added to your gallery.');
+      } else setRequestStatus('The image provider returned no image. Check its key, quota, and connection, then try again.');
+    } catch (error) {
+      setRequestStatus(error.message || 'Image generation failed. Check the provider connection and try again.');
+    }
   };
 
   const handleDownload = (imgUrl, filename = 'cortex-ai-image.jpg') => {
@@ -80,10 +69,11 @@ export const ImageGalleryView = ({ newImage, onRunAgentPrompt, isLoading }) => {
           </button>
         </form>
       </div>
+      {requestStatus && <p role="status" className="border-b border-dark-800 bg-dark-900 px-4 py-2 text-xs text-amber-300">{requestStatus}</p>}
 
       {/* Gallery Grid */}
       <div className="flex-1 p-6 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        {gallery.length ? <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {gallery.map((item) => (
             <div
               key={item.id}
@@ -131,7 +121,7 @@ export const ImageGalleryView = ({ newImage, onRunAgentPrompt, isLoading }) => {
               </div>
             </div>
           ))}
-        </div>
+        </div> : <div className="h-full min-h-48 flex flex-col items-center justify-center text-center text-slate-400"><ImageIcon className="w-10 h-10 mb-3 text-indigo-400" /><p className="text-sm font-semibold text-slate-200">No generated images yet</p><p className="mt-1 max-w-md text-xs">Add a Pollinations key in API &amp; Plugins, then enter a prompt above. Generated images appear here after the provider returns them.</p></div>}
       </div>
 
       {/* Modal Zoom Preview */}

@@ -4,40 +4,17 @@ import remarkGfm from 'remark-gfm';
 import { Download, FileText, Sparkles, Printer } from 'lucide-react';
 import api from '../services/api.js';
 
-const DEFAULT_DOC = `# Executive Brief: Multi-Agent Platform Deployment
-**Subject:** Cloud Scaling & Microservices Architecture
-**Date:** March 2026
-
----
-
-## 1. Executive Summary
-This enterprise document outlines the technical architecture for the multi-agent AI SaaS platform, focusing on decoupled microservices, high-speed Redis session caching, and transactional credit accounting.
-
-## 2. Core Operational Pillars
-- **Central API Gateway:** Unified rate-limiting, JWT authentication, and atomic credit enforcement.
-- **LangGraph State Orchestrator:** Dynamic conditional routing across specialized nodes.
-- **Qdrant Vector Retrieval:** Sub-millisecond similarity queries for real-time domain RAG.
-
-| Component | Target Metric | High-Availability Plan |
-| :--- | :--- | :--- |
-| **Gateway Proxy** | < 15ms latency | Multi-AZ ECS Fargate |
-| **Credit Ledger** | 100% Consistency | MongoDB replica set with atomic operations |
-| **Agent Execution** | Streaming Tokens | Redis pub/sub with WebSocket gateway |
-
-## 3. Next Steps & Recommendations
-1. Deploy Docker Compose containers locally for testing.
-2. Initialize Qdrant collection with 1536-dimensional embeddings.
-3. Configure Razorpay webhook secrets for production transactions.
-
----
-*Created by Cortex Document Creation AI Agent.*`;
-
 export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
-  const content = docMarkdown || DEFAULT_DOC;
+  const content = docMarkdown || '';
   const [promptInput, setPromptInput] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState('');
 
   const handleDownloadPdf = async () => {
+    if (!content.trim()) {
+      setRequestStatus('Create a document with the AI before exporting a PDF.');
+      return;
+    }
     try {
       setIsExporting(true);
       const response = await api.post(
@@ -55,17 +32,24 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
       link.remove();
     } catch (err) {
       console.error('Failed to export PDF:', err);
-      alert('Failed to generate PDF document.');
+      setRequestStatus(err.response?.data?.message || 'Failed to export the PDF. Check the agent service and try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleGenerate = (e) => {
+  const handleGenerate = async (e) => {
     e.preventDefault();
     if (!promptInput.trim() || isLoading) return;
-    onRunAgentPrompt(promptInput.trim());
-    setPromptInput('');
+    setRequestStatus('');
+    try {
+      const result = await onRunAgentPrompt(promptInput.trim());
+      if (result?.error) setRequestStatus(result.error);
+      else if (result?.documentMarkdown) { setPromptInput(''); setRequestStatus('Document generated. Review it below before exporting.'); }
+      else setRequestStatus('The provider returned no document. Check the connection and try again.');
+    } catch (error) {
+      setRequestStatus(error.message || 'Document generation failed. Check the provider connection and try again.');
+    }
   };
 
   return (
@@ -93,6 +77,7 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.print()}
+            disabled={!content.trim()}
             className="px-3 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -101,7 +86,7 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
 
           <button
             onClick={handleDownloadPdf}
-            disabled={isExporting}
+            disabled={isExporting || !content.trim()}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-bold text-xs flex items-center gap-2 shadow-md transition disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
@@ -109,6 +94,7 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
           </button>
         </div>
       </div>
+      {requestStatus && <p role="status" className="border-b border-dark-800 bg-dark-900 px-4 py-2 text-xs text-amber-300">{requestStatus}</p>}
 
       {/* Document Reader Container */}
       <div className="flex-1 p-6 md:p-10 overflow-y-auto flex justify-center">
@@ -118,7 +104,7 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
             <span>Executive Document Preview</span>
           </div>
 
-          <article className="prose prose-invert prose-purple max-w-none text-sm leading-relaxed">
+          {content ? <article className="prose prose-invert prose-purple max-w-none text-sm leading-relaxed">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -137,7 +123,7 @@ export const DocumentView = ({ docMarkdown, onRunAgentPrompt, isLoading }) => {
             >
               {content}
             </ReactMarkdown>
-          </article>
+          </article> : <div className="min-h-64 flex flex-col items-center justify-center text-center text-slate-400"><FileText className="w-10 h-10 mb-3 text-purple-400" /><p className="text-sm font-semibold text-slate-200">No generated document yet</p><p className="mt-1 max-w-md text-xs">Describe the document you need above. A real provider response will appear here; export is enabled afterward.</p></div>}
         </div>
       </div>
     </div>

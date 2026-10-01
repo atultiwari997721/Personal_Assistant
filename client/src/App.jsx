@@ -121,6 +121,7 @@ export const App = () => {
       dispatch(
         appendSessionMessage({ sessionId, message: { role: 'assistant', agent: activeAgent, content: `⚠️ **Execution Error:** ${errorMsg}` } })
       );
+      return { error: errorMsg };
     } finally {
       dispatch(setLoading(false));
     }

@@ -9,7 +9,7 @@ import {
   listProviderModels,
 } from '../controllers/agentController.js';
 import { getConfiguredProviders } from '../config/llm.js';
-import { runPluginAction } from '../controllers/pluginController.js';
+import { runPluginAction, testPluginConnection } from '../controllers/pluginController.js';
 
 const router = express.Router();
 
@@ -38,6 +38,7 @@ router.get('/providers', async (_req, res) => {
 router.post('/providers/test', testProviderConnection);
 router.post('/providers/models', listProviderModels);
 router.post('/plugins/action', runPluginAction);
+router.post('/plugins/test', testPluginConnection);
 router.post('/execute', runAgentTask);
 router.post('/export-pptx', exportPptx);
 router.post('/export-pdf', exportPdf);

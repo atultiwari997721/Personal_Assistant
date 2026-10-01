@@ -46,6 +46,14 @@ test('automatic routing honors a configured provider preference', async () => {
   });
 });
 
+test('automatic routing never treats an Ollama model name as proof that its server is online', async () => {
+  await withCleanProviderEnv(() => {
+    process.env.OLLAMA_MODEL = 'kritiai:latest';
+    assert.equal(getActiveProvider('auto'), null);
+    assert.equal(getActiveProvider('ollama').model, 'kritiai:latest');
+  });
+});
+
 test('an explicit provider selection does not silently switch providers', async () => {
   await withCleanProviderEnv(() => {
     process.env.OPENAI_API_KEY = 'test-openai-key';

@@ -182,6 +182,9 @@ export default function ApiPluginsPage() {
   const dispatch = useDispatch();
   const [tab, setTab] = useState('api');
   const [pluginConfig, setPluginConfig] = useState(readPlugins);
+  const [pluginTestStatus, setPluginTestStatus] = useState({});
+  const [pluginVerified, setPluginVerified] = useState({});
+  const [testingPlugin, setTestingPlugin] = useState('');
   const [message, setMessage] = useState('');
   const [serverProviders, setServerProviders] = useState({});
   const [imageKey, setImageKey] = useState(() => getImageProviderConfig()?.apiKey || '');
@@ -208,14 +211,32 @@ export default function ApiPluginsPage() {
     window.setTimeout(() => setMessage(''), 3500);
   };
 
-  const setPluginField = (plugin, field, value) => setPluginConfig((state) => ({ ...state, [plugin]: { ...state[plugin], [field]: value } }));
+  const setPluginField = (plugin, field, value) => {
+    setPluginVerified((state) => ({ ...state, [plugin]: false }));
+    setPluginConfig((state) => ({ ...state, [plugin]: { ...state[plugin], [field]: value } }));
+  };
   const connectionCard = (id, name, description, fields) => {
     const current = pluginConfig[id] || {};
-    const connected = Boolean(fields.every((field) => current[field.key]?.trim()));
+    const hasDetails = Boolean(fields.every((field) => current[field.key]?.trim()));
+    const testConnection = async () => {
+      setTestingPlugin(id);
+      setPluginTestStatus((status) => ({ ...status, [id]: '' }));
+      try {
+        const response = await api.post('/agents/plugins/test', { type: id, pluginConfig: { [id]: current } }, { timeout: 15000 });
+        setPluginTestStatus((status) => ({ ...status, [id]: response.data.message || 'Connection verified.' }));
+        setPluginVerified((state) => ({ ...state, [id]: true }));
+      } catch (error) {
+        setPluginTestStatus((status) => ({ ...status, [id]: error.response?.data?.message || error.message || 'Connection test failed.' }));
+        setPluginVerified((state) => ({ ...state, [id]: false }));
+      } finally {
+        setTestingPlugin('');
+      }
+    };
     return <article key={id} className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
-      <div className="flex items-start justify-between gap-3 mb-3"><div><h3 className="font-semibold">{name}</h3><p className="text-xs text-slate-500 mt-1">{description}</p></div><span className={`text-[11px] rounded-full px-2.5 py-1 border ${connected ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{connected ? 'Details saved' : 'Setup needed'}</span></div>
+      <div className="flex items-start justify-between gap-3 mb-3"><div><h3 className="font-semibold">{name}</h3><p className="text-xs text-slate-500 mt-1">{description}</p></div><span className={`text-[11px] rounded-full px-2.5 py-1 border ${pluginVerified[id] ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : hasDetails ? 'text-amber-600 border-amber-500/30 bg-amber-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{pluginVerified[id] ? 'Verified' : hasDetails ? 'Details entered' : 'Setup needed'}</span></div>
       {fields.map((field) => <label key={field.key} className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-3">{field.label}<input type={field.secret ? 'password' : 'text'} value={current[field.key] || ''} onChange={(e) => setPluginField(id, field.key, e.target.value)} placeholder={field.placeholder} autoComplete="off" className="mt-1.5 w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" /></label>)}
-      <button type="button" onClick={() => savePlugins(pluginConfig)} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Plug className="w-3.5 h-3.5" />Save connection</button>
+      <div className="flex flex-wrap gap-2"><button type="button" onClick={() => savePlugins(pluginConfig)} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Plug className="w-3.5 h-3.5" />Save details</button><button type="button" disabled={!hasDetails || testingPlugin === id} onClick={testConnection} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testingPlugin === id ? 'Testing…' : 'Test connection'}</button></div>
+      {pluginTestStatus[id] && <p role="status" className="mt-3 text-xs text-slate-500 dark:text-slate-400">{pluginTestStatus[id]}</p>}
     </article>;
   };
 
@@ -234,7 +255,7 @@ export default function ApiPluginsPage() {
       </article>
       <div className="grid gap-4">{MODEL_LIST.map((model) => <ProviderCard key={model.id} model={model} provider={serverProviders[model.id]} onSave={saveProvider} />)}</div>
     </> : <>
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">Connections are stored on this device. Google API access tokens must include Gmail send and/or Calendar event scopes. WhatsApp requires a Meta Cloud API access token and phone number ID. Chat will ask before sending or creating anything.</div>
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">Connection details are stored in this browser. Use Test connection to check live Gmail and Calendar access or validate the WhatsApp number. Chat asks for confirmation before sending or creating anything.</div>
       <div className="grid gap-4">
         {connectionCard('google', 'Gmail & Google Calendar', 'Connect Google APIs using an access token created for your Google account.', [
           { key: 'accessToken', label: 'Google access token', secret: true, placeholder: 'Paste Google OAuth access token' },
@@ -246,7 +267,7 @@ export default function ApiPluginsPage() {
         ])}
       </div>
       <p role="status" className="text-sm text-emerald-600">{message}</p>
-      <p className="text-xs text-slate-500">Credentials are stored in this browser only. “Details saved” confirms local setup, not that the service token or permissions have been verified.</p>
+      <p className="text-xs text-slate-500">Credentials are stored in this browser only. A live test checks Gmail profile and primary-calendar access for Google, and phone-number access for WhatsApp. WhatsApp sending permissions are confirmed only when a message is sent.</p>
     </>}
   </div></div>;
 }

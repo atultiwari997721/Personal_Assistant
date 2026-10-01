@@ -6,6 +6,48 @@ const fail = (message, status = 400) => {
   throw error;
 };
 
+const providerError = (error, provider) => {
+  const status = error.response?.status;
+  const mapped = new Error(status === 401 || status === 403
+    ? `${provider} rejected this connection or its required permissions are missing. Reconnect it with the required access.`
+    : status === 429 ? `${provider} is rate-limiting connection checks. Try again shortly.`
+      : status ? `${provider} connection check failed (HTTP ${status}).`
+        : `${provider} could not be reached. Check this device's network connection and try again.`);
+  mapped.status = status === 429 ? 429 : status === 401 || status === 403 ? 400 : status ? 502 : 503;
+  return mapped;
+};
+
+export const testPluginConnection = async (req, res) => {
+  const { type, pluginConfig = {} } = req.body || {};
+  try {
+    if (type === 'google') {
+      const token = pluginConfig.google?.accessToken?.trim();
+      if (!token) fail('Add a Google access token before testing the connection.');
+      const headers = { Authorization: `Bearer ${token}` };
+      await Promise.all([
+        axios.get('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers, timeout: 12000 }),
+        axios.get('https://www.googleapis.com/calendar/v3/calendars/primary', { headers, timeout: 12000 }),
+      ]);
+      return res.json({ success: true, message: 'Google token verified for Gmail and the primary Calendar.' });
+    }
+
+    if (type === 'whatsapp') {
+      const { accessToken, phoneNumberId, apiVersion = 'v22.0' } = pluginConfig.whatsapp || {};
+      if (!accessToken?.trim() || !phoneNumberId?.trim()) fail('Add the WhatsApp access token and phone number ID before testing.');
+      if (!/^v\d+\.\d+$/.test(apiVersion)) fail('Graph API version must look like v22.0.');
+      const response = await axios.get(`https://graph.facebook.com/${apiVersion}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name`, {
+        headers: { Authorization: `Bearer ${accessToken.trim()}` }, timeout: 12000,
+      });
+      return res.json({ success: true, message: `WhatsApp number verified${response.data.display_phone_number ? ` (${response.data.display_phone_number})` : ''}. Sending still depends on Meta account permissions and messaging rules.` });
+    }
+
+    return fail('Choose a supported integration to test.');
+  } catch (error) {
+    const mapped = error.response ? providerError(error, type === 'google' ? 'Google' : 'WhatsApp') : error;
+    return res.status(mapped.status || 400).json({ success: false, message: mapped.message || 'Connection test failed.' });
+  }
+};
+
 export const runPluginAction = async (req, res) => {
   try {
     const { type, payload = {}, pluginConfig = {} } = req.body || {};

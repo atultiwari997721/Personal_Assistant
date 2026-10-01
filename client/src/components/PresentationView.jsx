@@ -2,45 +2,13 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, Presentation, Sparkles, MessageSquare } from 'lucide-react';
 import api from '../services/api.js';
 
-const DEFAULT_SLIDES = [
-  {
-    slide_number: 1,
-    title: 'Cortex AI: Multi-Agent Platform',
-    bullet_points: [
-      'Microservices architecture built with MERN, Docker & AWS',
-      'LangGraph multi-agent state graph coordinating 6 specialized nodes',
-      'Instant Qdrant vector retrieval and Redis session persistence',
-    ],
-    speaker_notes: 'Welcome everyone. This presentation covers the architecture and monetization of the Cortex AI platform.',
-  },
-  {
-    slide_number: 2,
-    title: 'API Gateway & Rate Limiting',
-    bullet_points: [
-      'Central reverse proxy enforcing JWT sessions and rate limits',
-      'Atomic credit check before forwarding to AI orchestration layer',
-      'Strict 1-credit per successful agent task deduction',
-    ],
-    speaker_notes: 'Notice how the Gateway acts as a secure front door before any AI computation is triggered.',
-  },
-  {
-    slide_number: 3,
-    title: 'Razorpay Credit Monetization',
-    bullet_points: [
-      'Instant token recharge via HMAC-SHA256 verified webhooks',
-      'Scalable credit tiers for developers and enterprises',
-      'Real-time Redux synchronization without browser reload',
-    ],
-    speaker_notes: 'Our payment pipeline guarantees atomic balance increments even under concurrent load.',
-  },
-];
-
-export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, isLoading }) => {
-  const currentSlides = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
+export const PresentationView = ({ slides = [], onRunAgentPrompt, isLoading }) => {
+  const currentSlides = slides || [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(true);
   const [promptInput, setPromptInput] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState('');
 
   const activeSlide = currentSlides[currentIndex] || currentSlides[0];
 
@@ -57,6 +25,10 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
   };
 
   const handleDownloadPptx = async () => {
+    if (!currentSlides.length) {
+      setRequestStatus('Generate a presentation before exporting a PowerPoint file.');
+      return;
+    }
     try {
       setIsExporting(true);
       const response = await api.post(
@@ -74,18 +46,24 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
       link.remove();
     } catch (err) {
       console.error('Failed to download PPTX:', err);
-      alert('Failed to export PPTX presentation.');
+      setRequestStatus(err.response?.data?.message || 'Failed to export the presentation. Check the agent service and try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleGenerate = (e) => {
+  const handleGenerate = async (e) => {
     e.preventDefault();
     if (!promptInput.trim() || isLoading) return;
-    onRunAgentPrompt(promptInput.trim());
-    setPromptInput('');
-    setCurrentIndex(0);
+    setRequestStatus('');
+    try {
+      const result = await onRunAgentPrompt(promptInput.trim());
+      if (result?.error) setRequestStatus(result.error);
+      else if (result?.slides?.length) { setPromptInput(''); setCurrentIndex(0); setRequestStatus(`Generated ${result.slides.length} slides. Review before exporting.`); }
+      else setRequestStatus('The provider returned no presentation. Check the connection and try again.');
+    } catch (error) {
+      setRequestStatus(error.message || 'Presentation generation failed. Check the provider connection and try again.');
+    }
   };
 
   return (
@@ -121,7 +99,7 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
 
           <button
             onClick={handleDownloadPptx}
-            disabled={isExporting}
+            disabled={isExporting || !currentSlides.length}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold text-xs flex items-center gap-2 shadow-md transition disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
@@ -129,10 +107,11 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
           </button>
         </div>
       </div>
+      {requestStatus && <p role="status" className="border-b border-dark-800 bg-dark-900 px-4 py-2 text-xs text-amber-300">{requestStatus}</p>}
 
       {/* Main Slide Stage */}
       <div className="flex-1 p-6 md:p-8 flex items-center justify-center overflow-auto">
-        <div className="w-full max-w-4xl aspect-[16/9] bg-gradient-to-br from-slate-900 via-dark-900 to-slate-950 border border-dark-700/80 rounded-3xl p-8 md:p-12 flex flex-col justify-between shadow-2xl relative cortex-glow">
+        {activeSlide ? <div className="w-full max-w-4xl aspect-[16/9] bg-gradient-to-br from-slate-900 via-dark-900 to-slate-950 border border-dark-700/80 rounded-3xl p-8 md:p-12 flex flex-col justify-between shadow-2xl relative cortex-glow">
           {/* Slide Header */}
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -166,7 +145,7 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
             <span>Powered by LangGraph Presentation Agent</span>
             <span>{activeSlide?.slide_number ? `Page ${activeSlide.slide_number}` : ''}</span>
           </div>
-        </div>
+        </div> : <div className="w-full max-w-2xl rounded-2xl border border-dark-800 bg-dark-900 p-8 text-center text-slate-400"><Presentation className="mx-auto mb-3 h-10 w-10 text-pink-400" /><h2 className="text-sm font-semibold text-slate-200">No generated presentation yet</h2><p className="mt-1 text-xs">Describe the deck you need above. A real model response will appear here; export is enabled afterward.</p></div>}
       </div>
 
       {/* Slide Navigation & Speaker Notes Drawer */}
@@ -175,17 +154,17 @@ export const PresentationView = ({ slides = DEFAULT_SLIDES, onRunAgentPrompt, is
         <div className="flex items-center gap-3">
           <button
             onClick={handlePrev}
-            disabled={currentIndex === 0}
+            disabled={!currentSlides.length || currentIndex === 0}
             className="p-2 rounded-xl bg-dark-800 hover:bg-dark-700 disabled:opacity-30 text-white transition"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-xs font-semibold text-slate-300">
-            Slide {currentIndex + 1} / {currentSlides.length}
+            {currentSlides.length ? `Slide ${currentIndex + 1} / ${currentSlides.length}` : 'No slides'}
           </span>
           <button
             onClick={handleNext}
-            disabled={currentIndex === currentSlides.length - 1}
+            disabled={!currentSlides.length || currentIndex === currentSlides.length - 1}
             className="p-2 rounded-xl bg-dark-800 hover:bg-dark-700 disabled:opacity-30 text-white transition"
           >
             <ChevronRight className="w-5 h-5" />

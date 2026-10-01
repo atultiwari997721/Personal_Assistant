@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { CheckCircle2, Circle, Eye, EyeOff, Plug, Save, ShieldCheck, Wifi, LoaderCircle } from 'lucide-react';
 import { AVAILABLE_MODELS, setSelectedModel } from '../store/agentSlice.js';
@@ -15,6 +15,16 @@ const PROVIDER_URLS = {
   openrouter: 'https://openrouter.ai/api/v1',
   ollama: 'http://127.0.0.1:11434/v1',
 };
+const API_KEY_LINKS = {
+  openai: 'https://platform.openai.com/api-keys',
+  xai: 'https://console.x.ai/',
+  gemini: 'https://aistudio.google.com/app/apikey',
+  nvidia: 'https://build.nvidia.com/',
+  groq: 'https://console.groq.com/keys',
+  huggingface: 'https://huggingface.co/settings/tokens',
+  openrouter: 'https://openrouter.ai/settings/keys',
+  ollama: 'https://ollama.com/download',
+};
 const MODEL_LIST = AVAILABLE_MODELS.filter((model) => model.id !== 'auto');
 
 const readPlugins = () => {
@@ -22,25 +32,72 @@ const readPlugins = () => {
 };
 
 function ProviderCard({ model, provider, onSave }) {
-  const [config, setConfig] = useState({ apiKey: '', model: '', baseURL: PROVIDER_URLS[model.id] });
+  const [config, setConfig] = useState(() => {
+    const saved = getProviderConfigs()[model.id];
+    return { apiKey: saved?.apiKey || '', model: saved?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] };
+  });
+  const [availableModels, setAvailableModels] = useState([]);
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState('');
   const [testing, setTesting] = useState(false);
+  const initialDiscovery = useRef(false);
+  const discoveryPromise = useRef(null);
   useEffect(() => {
     const saved = getProviderConfigs()[model.id];
-    setConfig({ apiKey: saved?.apiKey || '', model: saved?.model || provider?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] });
+    setConfig((current) => ({ ...current, apiKey: saved?.apiKey || current.apiKey, model: saved?.model || provider?.model || current.model, baseURL: saved?.baseURL || current.baseURL || PROVIDER_URLS[model.id] }));
   }, [model.id, provider?.model]);
   const isLocal = model.id === 'ollama';
   const savedLocally = Boolean((config.apiKey || isLocal) && config.model && getProviderConfigs()[model.id]?.model);
+  const hasLocalConfig = Boolean(getProviderConfigs()[model.id]?.apiKey || savedLocally);
   const configuredOnService = Boolean(provider?.configured);
   const ready = savedLocally || configuredOnService;
 
-  const save = () => {
+  const discoverAndSave = (sourceConfig = config, quiet = false) => {
+    if (!sourceConfig.apiKey?.trim()) return false;
+    if (discoveryPromise.current) return discoveryPromise.current;
+    if (!quiet) { setTesting(true); setStatus('Checking key and selecting a working model…'); }
+    saveProviderConfig(model.id, { ...sourceConfig, model: sourceConfig.model || '' });
+    discoveryPromise.current = (async () => {
+      try {
+        const providerConfig = { provider: model.id, ...sourceConfig, model: sourceConfig.model || '__auto_discover__' };
+        const response = await api.post('/agents/providers/models', { providerConfig }, { timeout: 25000 });
+        const models = response.data.models || [];
+        const next = { ...sourceConfig, model: response.data.recommended || models[0] };
+        setAvailableModels(models);
+        setConfig(next);
+        onSave(model.id, next);
+        setStatus(`Connected. Automatically selected ${next.model}.`);
+        return true;
+      } catch (error) {
+        setStatus(error.response?.data?.message || error.message || 'Could not validate the API key.');
+        return false;
+      } finally { if (!quiet) setTesting(false); discoveryPromise.current = null; }
+    })();
+    return discoveryPromise.current;
+  };
+
+  useEffect(() => {
+    const saved = getProviderConfigs()[model.id];
+    if (saved?.apiKey && !initialDiscovery.current) {
+      initialDiscovery.current = true;
+      discoverAndSave({ ...saved, baseURL: saved.baseURL || PROVIDER_URLS[model.id] }, true);
+    }
+  }, [model.id]);
+
+  const save = async () => {
+    if (!isLocal && config.apiKey?.trim()) {
+      await discoverAndSave(config);
+      return;
+    }
+    if (!config.model?.trim()) {
+      setStatus('No model is configured yet. Add a provider key or check the local Ollama setup.');
+      return;
+    }
     onSave(model.id, config);
-    setStatus(ready ? (savedLocally ? 'Saved in this browser.' : 'Configured on the local agent service.') : 'Enter a model ID and API key first.');
+    setStatus(configuredOnService ? 'Using the model configured on the local agent service.' : 'Saved in this browser.');
   };
   const test = async () => {
-    if (!ready) return setStatus('Save a model ID and API key first.');
+    if (!ready) return setStatus('Add an API key, then save to find an available model automatically.');
     setTesting(true); setStatus('Checking connection…');
     try {
       const providerConfig = savedLocally ? { provider: model.id, ...config, apiKey: config.apiKey || 'ollama' } : undefined;
@@ -53,21 +110,21 @@ function ProviderCard({ model, provider, onSave }) {
 
   return <article className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
     <div className="flex items-start justify-between gap-3 mb-4">
-      <div><h3 className="font-semibold">{model.name}</h3><p className="text-xs text-slate-500 mt-1">Use this provider across Chat and every agent.</p></div>
+      <div><h3 className="font-semibold">{model.name}</h3><p className="text-xs text-slate-500 mt-1">Use this provider across Chat and every agent.</p><a href={API_KEY_LINKS[model.id]} target="_blank" rel="noreferrer" className="inline-flex mt-1 text-xs text-sky-600 dark:text-sky-400 hover:underline">{isLocal ? 'Install Ollama' : `Get a ${model.name} API key`} ↗</a></div>
       <span className={`text-[11px] rounded-full px-2.5 py-1 border ${ready ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-500 border-slate-200 dark:border-dark-700'}`}>{savedLocally ? 'Configured in browser' : configuredOnService ? 'Configured on service' : 'Not configured'}</span>
     </div>
-    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model ID</label>
-    <input value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} placeholder="Enter the model ID from your provider" className="w-full mb-3 rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
-    {!isLocal && <>
+      {!isLocal && <>
       <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API key</label>
-      <div className="relative mb-3"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+      <div className="relative mb-3"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} onBlur={() => { if (config.apiKey?.trim() && !getProviderConfigs()[model.id]?.model) discoverAndSave(config); }} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
     </>}
+    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model selection <span className="font-normal text-slate-400">(automatic)</span></label>
+    {availableModels.length > 0 ? <select aria-label={`${model.name} model`} value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} className="w-full mb-3 rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm">{availableModels.map((id) => <option key={id} value={id}>{id}</option>)}</select> : <div className="w-full mb-3 rounded-xl border border-slate-200 dark:border-dark-700 bg-slate-100/70 dark:bg-dark-850 px-3 py-2.5 text-sm text-slate-500">{config.model || (isLocal ? 'Set by your local Ollama configuration' : 'We will find a model after you save the API key')}</div>}
     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API endpoint</label>
     <input value={config.baseURL} onChange={(e) => setConfig({ ...config, baseURL: e.target.value })} placeholder={PROVIDER_URLS[model.id]} className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Save className="w-3.5 h-3.5" />Save</button>
       <button type="button" onClick={test} disabled={testing || !ready} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
-      {savedLocally && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: provider?.model || '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed browser-saved credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
+      {hasLocalConfig && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: provider?.model || '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed browser-saved credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
     </div>
     {status && <p role="status" className="text-xs mt-3 text-slate-500 dark:text-slate-400">{status}</p>}
   </article>;

@@ -16,7 +16,7 @@ export const getSavedProviderConfig = (selection = 'auto') => {
 
 export const saveProviderConfig = (provider, config) => {
   const configs = getProviderConfigs();
-  if ((config?.apiKey || provider === 'ollama') && config?.model) configs[provider] = config;
+  if (config?.apiKey || (provider === 'ollama' && config?.model)) configs[provider] = config;
   else delete configs[provider];
   localStorage.setItem('kritiai_provider_configs', JSON.stringify(configs));
 };

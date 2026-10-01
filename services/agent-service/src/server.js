@@ -11,6 +11,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8003;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
@@ -30,6 +31,6 @@ try {
   console.warn('[Agent Service] Graph warm-up warning:', e.message);
 }
 
-app.listen(PORT, () => {
-  console.log(`🤖 [Agent Orchestrator Service] Running on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`🤖 [Agent Orchestrator Service] Running on ${HOST}:${PORT}`);
 });

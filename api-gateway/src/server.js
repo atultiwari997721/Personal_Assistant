@@ -11,10 +11,11 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8001';
-const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8002';
-const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:8003';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://127.0.0.1:8001';
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://127.0.0.1:8002';
+const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://127.0.0.1:8003';
 
 // 1. Global Middlewares
 app.use(cors({ origin: '*', credentials: true }));
@@ -121,8 +122,12 @@ app.use('*', (req, res) => {
   res.status(404).json({ success: false, message: 'Resource route not found on API Gateway.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🌐 [API Gateway] Central Proxy listening on port ${PORT}`);
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error('Set JWT_SECRET to at least 32 characters before starting the API gateway. start-dev.js generates a temporary local secret.');
+}
+
+app.listen(PORT, HOST, () => {
+  console.log(`🌐 [API Gateway] Central Proxy listening on ${HOST}:${PORT}`);
   console.log(`   - Auth Service:    ${AUTH_SERVICE_URL}`);
   console.log(`   - Payment Service: ${PAYMENT_SERVICE_URL}`);
   console.log(`   - Agent Service:   ${AGENT_SERVICE_URL}`);

@@ -17,6 +17,7 @@ import { updateCredits, setCreditModalOpen, setCredentials } from './store/authS
 import api from './services/api.js';
 import SettingsPage from './components/SettingsPage.jsx';
 import ApiPluginsPage from './components/ApiPluginsPage.jsx';
+import GoogleLoginPage from './components/GoogleLoginPage.jsx';
 import { appendSessionMessage, addSession, switchSession } from './store/sessionSlice.js';
 import { getSavedProviderConfig, getImageProviderConfig } from './services/providerSettings.js';
 import { createPluginDraft, getEnabledIntegrations, getPluginConfigs } from './services/pluginActions.js';
@@ -26,6 +27,7 @@ export const App = () => {
   const { activeAgent, selectedModel, isLoading } = useSelector(
     (state) => state.agent
   );
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const { sessions, activeSessionId } = useSelector((state) => state.session);
   const activeSession = useMemo(() => sessions.find((session) => session.id === activeSessionId) || sessions[0], [sessions, activeSessionId]);
   const messages = activeSession?.messages || [];
@@ -46,19 +48,30 @@ export const App = () => {
       try {
         const storedToken = localStorage.getItem('cortex_token');
         if (!storedToken || storedToken === 'demo_active_token') {
-          const res = await api.post('/auth/mock-login');
-          if (res.data?.success) {
-            dispatch(setCredentials({ user: res.data.user, token: res.data.token }));
+          if (import.meta.env.VITE_ALLOW_DEMO_AUTH === 'true') {
+            const res = await api.post('/auth/mock-login');
+            if (res.data?.success) dispatch(setCredentials({ user: res.data.user, token: res.data.token }));
           }
         } else {
           // Verify and sync credit balance
           const meRes = await api.get('/auth/me');
           if (meRes.data?.user) {
-            dispatch(updateCredits(meRes.data.user.credits));
+            dispatch(setCredentials({ user: meRes.data.user, token: storedToken }));
           }
         }
       } catch (err) {
         console.warn('Auto-session initialization fallback active:', err.message);
+        if ([401, 403].includes(err.response?.status)) {
+          dispatch({ type: 'auth/logout' });
+          if (import.meta.env.VITE_ALLOW_DEMO_AUTH === 'true') {
+            try {
+              const res = await api.post('/auth/mock-login');
+              if (res.data?.success) dispatch(setCredentials({ user: res.data.user, token: res.data.token }));
+            } catch (demoError) {
+              console.warn('Local development sign-in failed:', demoError.message);
+            }
+          }
+        }
       }
     };
 
@@ -197,6 +210,8 @@ export const App = () => {
         );
     }
   };
+
+  if (!isAuthenticated) return <GoogleLoginPage />;
 
   return (
     <div className="app-shell flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-dark-950 text-slate-800 dark:text-slate-100 font-sans transition-colors">

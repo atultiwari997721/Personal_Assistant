@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import razorpayInstance from '../config/razorpay.js';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8001';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://127.0.0.1:8001';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'YourRazorpayKeySecret';
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'YourRazorpayWebhookSecret';
 

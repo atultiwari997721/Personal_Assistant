@@ -7,6 +7,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8002;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
@@ -19,6 +20,6 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/payments', paymentRoutes);
 
-app.listen(PORT, () => {
-  console.log(`💳 [Payment Service] Running on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`💳 [Payment Service] Running on ${HOST}:${PORT}`);
 });

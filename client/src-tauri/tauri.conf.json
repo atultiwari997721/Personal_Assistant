@@ -5,7 +5,7 @@
   "identifier": "com.kritiai.desktop",
   "build": {
     "beforeDevCommand": "npm run dev -- --host 127.0.0.1",
-    "devUrl": "http://localhost:3894",
+    "devUrl": "http://127.0.0.1:3894",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' asset: http://asset.localhost; img-src 'self' asset: http://asset.localhost https: data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src ipc: http://ipc.localhost http://localhost:8000 http://localhost:8001 http://localhost:8002 http://localhost:8003 https: wss:; frame-src 'self' blob: data:"
+      "csp": "default-src 'self' asset: http://asset.localhost; img-src 'self' asset: http://asset.localhost https: data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' https://accounts.google.com; connect-src ipc: http://ipc.localhost http://127.0.0.1:8000 http://127.0.0.1:8001 http://127.0.0.1:8002 http://127.0.0.1:8003 https://accounts.google.com https://oauth2.googleapis.com https: wss:; frame-src 'self' blob: data: https://accounts.google.com"
     }
   },
   "bundle": {

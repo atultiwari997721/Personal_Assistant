@@ -9,7 +9,9 @@
 
 The original Cortex application is a microservices-based multi-agent web application built with **React**, **Express**, **LangGraph**, and optional **MongoDB**, **Redis**, and **Docker** services.
 
-> **Current implementation status:** This repository is being migrated to KritiAI. The active agent path now requires an explicitly configured model provider and reports provider/configuration errors instead of generating canned answers. The architecture and feature lists below describe the earlier Cortex version and are not a claim that those integrations are currently operational. Gmail, Calendar, Drive, local computer tools, image generation, persistent RAG, and device sync are not implemented in this build.
+> **Current implementation status:** This repository is being migrated to KritiAI. The active agent path requires an explicitly configured model provider and reports provider/configuration errors instead of generating canned answers. Gmail, Calendar, and WhatsApp API actions have user-reviewed confirmation cards and live connection checks, but account access still requires the user's provider credentials and has not been verified with real accounts here. Image generation requires a Pollinations API key. The browser project workspace is scoped to a user-selected folder and approval-gates each operation; it has no delete or terminal command. Project search is local keyword retrieval over individually approved files, not a persistent embedding index. The Tauri shell does not yet bundle a local execution runtime; Drive and device pairing/sync are not implemented. The architecture and feature lists below describe the earlier Cortex version and are not a claim that those capabilities are live.
+
+> **Authentication:** Google sign-in tokens are verified by the auth service against `GOOGLE_CLIENT_ID`; caller-supplied profile fields are not trusted. Production requires a `JWT_SECRET` of at least 32 characters. The local `start-dev.js` launcher enables its demo identity only in development and binds services to loopback; set `ALLOW_DEMO_AUTH=false` to disable it. Set `GOOGLE_CLIENT_ID` for the backend and the same value as `VITE_GOOGLE_CLIENT_ID` for a production frontend build to enable verified sign-in.
 
 ---
 
@@ -196,34 +198,13 @@ Personal_Assistant/
 
 ### Option B: Local Node.js Development
 
-Run services in separate terminals:
+For the local app, configure an AI provider in `.env`, then run the development stack:
 
 ```bash
-# 1. API Gateway
-cd api-gateway
-npm install
-npm run dev
-
-# 2. Auth Service
-cd services/auth-service
-npm install
-npm run dev
-
-# 3. Payment Service
-cd services/payment-service
-npm install
-npm run dev
-
-# 4. Agent Service
-cd services/agent-service
-npm install
-npm run dev
-
-# 5. Frontend Client
-cd client
-npm install
-npm run dev
+node start-dev.js
 ```
+
+This starts the site at `http://127.0.0.1:3894` and the gateway on loopback. The development demo identity is not available when `NODE_ENV=production`; production must use verified Google sign-in and a strong `JWT_SECRET`.
 
 ---
 

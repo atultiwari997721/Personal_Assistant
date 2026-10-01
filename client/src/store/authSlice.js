@@ -1,22 +1,23 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const demoAuthEnabled = import.meta.env.VITE_ALLOW_DEMO_AUTH === 'true';
 const initialToken = localStorage.getItem('cortex_token');
-const initialUser = localStorage.getItem('cortex_user')
-  ? JSON.parse(localStorage.getItem('cortex_user'))
-  : {
+let storedUser = null;
+try { storedUser = JSON.parse(localStorage.getItem('cortex_user') || 'null'); } catch {}
+const initialUser = storedUser || (demoAuthEnabled ? {
       uid: 'demo-user-123',
       name: 'Demo Architect',
       email: 'demo@cortexai.dev',
       avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=Architect',
       credits: 20,
-    };
+    } : null);
 
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
     user: initialUser,
-    token: initialToken || 'demo_active_token',
-    isAuthenticated: true,
+    token: initialToken || (demoAuthEnabled ? 'demo_active_token' : null),
+    isAuthenticated: Boolean(demoAuthEnabled || (initialToken && storedUser)),
     isCreditModalOpen: false,
   },
   reducers: {

@@ -2,6 +2,13 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User, memoryUserStore } from '../models/User.js';
 import redisClient from '../config/redis.js';
+import { verifyGoogleIdentity } from '../config/googleIdentity.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(here, '../../../../.env'), override: false });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_cortex_ai_2026_dev';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -43,24 +50,8 @@ const findOrCreateUser = async ({ uid, name, email, avatarUrl }) => {
 // POST /api/auth/google-login
 export const googleLogin = async (req, res) => {
   try {
-    const { idToken, user: clientUser } = req.body;
-    let uid, email, name, avatarUrl;
-
-    if (clientUser && clientUser.uid) {
-      uid = clientUser.uid;
-      email = clientUser.email || `${uid}@cortex.ai`;
-      name = clientUser.displayName || clientUser.name || 'AI User';
-      avatarUrl = clientUser.photoURL || clientUser.avatarUrl;
-    } else if (idToken) {
-      // In production with Firebase Admin SDK, verifyIdToken(idToken)
-      uid = 'usr_' + Buffer.from(idToken).toString('hex').slice(0, 12);
-      email = `${uid}@cortex.ai`;
-      name = 'Cloud Developer';
-    } else {
-      return res.status(400).json({ success: false, message: 'Missing user authentication payload.' });
-    }
-
-    const user = await findOrCreateUser({ uid, name, email, avatarUrl });
+    const identity = await verifyGoogleIdentity({ idToken: req.body?.idToken });
+    const user = await findOrCreateUser(identity);
 
     // Issue JWT
     const token = jwt.sign(
@@ -84,13 +75,16 @@ export const googleLogin = async (req, res) => {
       user,
     });
   } catch (error) {
-    console.error('[Auth Service] Google login error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    console.warn('[Auth Service] Google sign-in rejected:', error.code || 'GOOGLE_AUTH_FAILED');
+    return res.status(error.status || 500).json({ success: false, code: error.code || 'GOOGLE_AUTH_FAILED', message: error.message || 'Google sign-in failed.' });
   }
 };
 
 // POST /api/auth/mock-login (Quick 1-click test login for development/demo)
 export const mockLogin = async (req, res) => {
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEMO_AUTH !== 'true') {
+    return res.status(404).json({ success: false, code: 'DEMO_AUTH_DISABLED', message: 'Demo sign-in is disabled. Use verified Google sign-in.' });
+  }
   try {
     const { uid = 'demo-user-123', name = 'Demo Architect', email = 'demo@cortexai.dev' } = req.body || {};
     const user = await findOrCreateUser({

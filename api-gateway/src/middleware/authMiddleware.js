@@ -1,5 +1,11 @@
 import jwt from 'jsonwebtoken';
 import redisClient from '../config/redis.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(here, '../../../.env'), override: false });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_cortex_ai_2026_dev';
 
@@ -7,25 +13,14 @@ export const verifyAuthAndSession = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   let token = authHeader && authHeader.split(' ')[1];
 
-  // For public endpoints or webhooks, bypass
-  if (
-    req.path.includes('/login') ||
-    req.path.includes('/packages') ||
-    req.path.includes('/webhook') ||
-    req.path.includes('/health') ||
-    req.path === '/api/agents/spec'
-  ) {
-    return next();
-  }
-
-  // If token is missing, null, undefined, or default placeholder, gracefully auto-assign demo session
+  const demoAuthAllowed = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEMO_AUTH === 'true';
+  // Demo identity is available only in explicitly enabled local development.
   if (!token || token === 'null' || token === 'undefined' || token === 'demo_active_token') {
-    req.user = {
-      uid: 'demo-user-123',
-      email: 'demo@cortexai.dev',
-      name: 'Demo Architect',
-    };
-    return next();
+    if (demoAuthAllowed) {
+      req.user = { uid: 'demo-user-123', email: 'demo@cortexai.dev', name: 'Demo Architect', demo: true };
+      return next();
+    }
+    return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', message: 'Sign in before using this service.' });
   }
 
   try {
@@ -42,13 +37,11 @@ export const verifyAuthAndSession = async (req, res, next) => {
 
     return next();
   } catch (err) {
-    // If token expired or invalid secret, fallback to demo session in dev mode so the user is never blocked
-    console.warn(`[Gateway Auth] Token verification notice: ${err.message}. Assigning demo session.`);
-    req.user = {
-      uid: 'demo-user-123',
-      email: 'demo@cortexai.dev',
-      name: 'Demo Architect',
-    };
-    return next();
+    if (demoAuthAllowed) {
+      console.warn(`[Gateway Auth] Replacing invalid local development token (${err.name}).`);
+      req.user = { uid: 'demo-user-123', email: 'demo@cortexai.dev', name: 'Demo Architect', demo: true };
+      return next();
+    }
+    return res.status(401).json({ success: false, code: 'AUTH_INVALID', message: 'Your session is invalid or expired. Sign in again.' });
   }
 };

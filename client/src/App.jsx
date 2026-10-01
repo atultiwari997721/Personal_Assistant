@@ -18,7 +18,7 @@ import api from './services/api.js';
 import SettingsPage from './components/SettingsPage.jsx';
 import ApiPluginsPage from './components/ApiPluginsPage.jsx';
 import { appendSessionMessage, addSession, switchSession } from './store/sessionSlice.js';
-import { getSavedProviderConfig } from './services/providerSettings.js';
+import { getSavedProviderConfig, getImageProviderConfig } from './services/providerSettings.js';
 import { createPluginDraft, getEnabledIntegrations, getPluginConfigs } from './services/pluginActions.js';
 
 export const App = () => {
@@ -92,6 +92,7 @@ export const App = () => {
         agentMode: activeAgent,
         model: selectedModel || 'auto',
         providerConfig: getSavedProviderConfig(selectedModel),
+        imageProviderConfig: activeAgent === 'image' ? getImageProviderConfig() : undefined,
         connectedPlugins: getEnabledIntegrations(),
         messages: messages.filter((m) => m.role === 'user' || m.role === 'assistant').map((m) => ({ role: m.role, content: m.content })),
       });

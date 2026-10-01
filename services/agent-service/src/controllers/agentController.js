@@ -11,20 +11,45 @@ export const listProviderModels = async (req, res) => {
     const provider = providerConfig?.provider || req.body?.provider;
     if (!provider) return res.status(400).json({ success: false, message: 'Choose a provider first.' });
     const active = getActiveProvider(provider, providerConfig ? { ...providerConfig, model: providerConfig.model || '__auto_discover__' } : undefined);
-    const response = await axios.get(`${active.baseURL.replace(/\/$/, '')}/models`, {
-      headers: { Authorization: `Bearer ${active.apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 20000,
-    });
-    const rawModels = response.data?.data || response.data?.models || [];
-    const models = rawModels.map((item) => typeof item === 'string' ? item : item?.id || item?.name).filter(Boolean);
-    if (!models.length) return res.status(400).json({ success: false, message: 'The provider returned no model list. Check the API key and endpoint.' });
-    const preferred = provider === 'groq'
-      ? ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b']
+    const fallbacks = {
+      openai: ['gpt-4.1-mini', 'gpt-4o-mini'], xai: ['grok-3-mini', 'grok-2-latest'],
+      gemini: ['gemini-2.5-flash', 'gemini-2.0-flash'], nvidia: ['meta/llama-3.3-70b-instruct', 'meta/llama-3.1-8b-instruct'],
+      groq: ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'],
+      huggingface: ['Qwen/Qwen2.5-Coder-32B-Instruct', 'meta-llama/Llama-3.3-70B-Instruct'],
+      openrouter: ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'],
+    }[provider] || [];
+    let listedModels = [];
+    try {
+      const response = await axios.get(`${active.baseURL.replace(/\/$/, '')}/models`, {
+        headers: { Authorization: `Bearer ${active.apiKey}`, 'Content-Type': 'application/json' }, timeout: 12000,
+      });
+      const rawModels = response.data?.data || response.data?.models || [];
+      listedModels = rawModels.map((item) => typeof item === 'string' ? item : item?.id || item?.name).filter(Boolean)
+        .filter((id) => !/embed|audio|whisper|moderation|realtime|image/i.test(id));
+    } catch (error) {
+      // Some compatible providers do not expose /models. Verify known chat models directly below.
+      if ([401, 403].includes(error.response?.status)) throw error;
+    }
+    const preferred = provider === 'groq' ? ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b']
       : provider === 'gemini' ? ['gemini-2.5-flash', 'gemini-2.0-flash']
-        : provider === 'openai' ? ['gpt-4.1-mini', 'gpt-4o-mini']
-          : [];
-    const recommended = preferred.find((id) => models.includes(id)) || models.find((id) => /gpt|grok|gemini|llama|qwen|claude/i.test(id) && !/embed|audio|whisper|moderation|realtime/i.test(id)) || models[0];
-    return res.json({ success: true, provider, models, recommended });
+        : provider === 'openai' ? ['gpt-4.1-mini', 'gpt-4o-mini'] : [];
+    const candidateModels = [...new Set([
+      ...(preferred.filter((id) => listedModels.includes(id))),
+      ...(listedModels.length ? [listedModels.find((id) => /gpt|grok|gemini|llama|qwen|claude/i.test(id)) || listedModels[0]] : []),
+      ...(providerConfig?.model && providerConfig.model !== '__auto_discover__' ? [providerConfig.model] : []),
+      ...fallbacks,
+    ])];
+    let lastError;
+    for (const candidate of candidateModels) {
+      try {
+        await invokeLLM({ systemPrompt: 'Reply with exactly OK.', userPrompt: 'OK', model: provider, providerConfig: { ...providerConfig, provider, apiKey: active.apiKey, baseURL: active.baseURL, model: candidate }, temperature: 0, timeout: 10000 });
+        return res.json({ success: true, provider, models: listedModels, recommended: candidate, verified: true });
+      } catch (error) {
+        lastError = error;
+        if (['AI_PROVIDER_AUTH_FAILED', 'AI_PROVIDER_QUOTA_EXCEEDED'].includes(error.code)) break;
+      }
+    }
+    throw lastError || new Error('No working chat model was found for this provider.');
   } catch (error) {
     const message = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Could not read the provider model list.';
     return res.status(400).json({ success: false, code: error.code || 'AI_PROVIDER_MODELS_FAILED', message });
@@ -38,15 +63,18 @@ export const testProviderConnection = async (req, res) => {
     if (!provider) {
       return res.status(400).json({ success: false, message: 'Choose a provider first.' });
     }
-    const content = await invokeLLM({
-      systemPrompt: 'You are checking an AI provider connection. Reply with the single word OK.',
-      userPrompt: 'Reply with OK.',
-      model: provider,
-      providerConfig,
-      temperature: 0,
-      timeout: 20000,
+    if (!providerConfig?.apiKey && provider !== 'ollama') return res.status(400).json({ success: false, code: 'AI_PROVIDER_KEY_REQUIRED', message: 'Paste an API key before testing this connection.' });
+    if (provider === 'ollama') {
+      const active = getActiveProvider(provider, providerConfig);
+      const content = await invokeLLM({ systemPrompt: 'Reply with exactly OK.', userPrompt: 'OK', model: provider, providerConfig, temperature: 0, timeout: 20000 });
+      return res.json({ success: true, provider, model: active.model, verified: Boolean(content), message: `Live response received from ${active.model}.` });
+    }
+    const result = await new Promise((resolve, reject) => {
+      const target = { ...providerConfig, provider, model: providerConfig?.model || '__auto_discover__' };
+      const fakeRes = { json: resolve, status: () => ({ json: (body) => reject(Object.assign(new Error(body.message), { code: body.code })) }) };
+      listProviderModels({ body: { providerConfig: target } }, fakeRes).catch(reject);
     });
-    return res.json({ success: true, provider, model: providerConfig?.model || undefined, response: content.slice(0, 40) });
+    return res.json({ success: true, provider, model: result.recommended, verified: result.verified, message: `Live response received from ${result.recommended}.` });
   } catch (error) {
     console.error('[Agent Service] Provider check failed:', { code: error.code, provider: error.provider, status: error.status });
     return res.status(400).json({ success: false, code: error.code || 'AI_PROVIDER_REQUEST_FAILED', message: error.message });
@@ -101,7 +129,7 @@ export const AGENT_SPECS = [
 // POST /api/agents/execute
 export const runAgentTask = async (req, res) => {
   try {
-    const { prompt, agentMode = 'chat', messages = [], model = 'auto', providerConfig, connectedPlugins = [] } = req.body;
+    const { prompt, agentMode = 'chat', messages = [], model = 'auto', providerConfig, imageProviderConfig, connectedPlugins = [] } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Prompt is required.' });
@@ -112,6 +140,7 @@ export const runAgentTask = async (req, res) => {
       agentMode,
       model,
       providerConfig,
+      imageProviderConfig,
       connectedPlugins,
       messages,
     });

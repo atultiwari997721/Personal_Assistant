@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { CheckCircle2, Circle, Eye, EyeOff, Plug, Save, ShieldCheck, Wifi, LoaderCircle } from 'lucide-react';
 import { AVAILABLE_MODELS, setSelectedModel } from '../store/agentSlice.js';
-import { getProviderConfigs, saveProviderConfig } from '../services/providerSettings.js';
+import { getImageProviderConfig, getProviderConfigs, saveProviderConfig } from '../services/providerSettings.js';
 import api from '../services/api.js';
 
 const PROVIDER_URLS = {
@@ -36,7 +36,6 @@ function ProviderCard({ model, provider, onSave }) {
     const saved = getProviderConfigs()[model.id];
     return { apiKey: saved?.apiKey || '', model: saved?.model || '', baseURL: saved?.baseURL || PROVIDER_URLS[model.id] };
   });
-  const [availableModels, setAvailableModels] = useState([]);
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState('');
   const [testing, setTesting] = useState(false);
@@ -56,14 +55,15 @@ function ProviderCard({ model, provider, onSave }) {
     if (!sourceConfig.apiKey?.trim()) return false;
     if (discoveryPromise.current) return discoveryPromise.current;
     if (!quiet) { setTesting(true); setStatus('Checking key and selecting a working model…'); }
-    saveProviderConfig(model.id, { ...sourceConfig, model: sourceConfig.model || '' });
+    // Preserve the key while discovery runs, but never leave an unverified model
+    // marked ready if a previous manually entered model ID was invalid.
+    saveProviderConfig(model.id, { ...sourceConfig, model: '' });
     discoveryPromise.current = (async () => {
       try {
         const providerConfig = { provider: model.id, ...sourceConfig, model: sourceConfig.model || '__auto_discover__' };
-        const response = await api.post('/agents/providers/models', { providerConfig }, { timeout: 25000 });
+        const response = await api.post('/agents/providers/models', { providerConfig }, { timeout: 65000 });
         const models = response.data.models || [];
         const next = { ...sourceConfig, model: response.data.recommended || models[0] };
-        setAvailableModels(models);
         setConfig(next);
         onSave(model.id, next);
         setStatus(`Connected. Automatically selected ${next.model}.`);
@@ -97,12 +97,19 @@ function ProviderCard({ model, provider, onSave }) {
     setStatus(configuredOnService ? 'Using the model configured on the local agent service.' : 'Saved in this browser.');
   };
   const test = async () => {
-    if (!ready) return setStatus('Add an API key, then save to find an available model automatically.');
-    setTesting(true); setStatus('Checking connection…');
+    if (!config.apiKey?.trim() && !ready) return setStatus('Paste an API key first.');
+    setTesting(true); setStatus('Sending a live test prompt to the provider…');
     try {
-      const providerConfig = savedLocally ? { provider: model.id, ...config, apiKey: config.apiKey || 'ollama' } : undefined;
-      const response = await api.post('/agents/providers/test', { provider: model.id, providerConfig }, { timeout: 25000 });
-      setStatus(`Connected: ${response.data.model}`);
+      const providerConfig = config.apiKey?.trim()
+        ? { provider: model.id, ...config, model: config.model || '__auto_discover__' }
+        : savedLocally && model.id === 'ollama'
+          ? { provider: model.id, ...config, apiKey: 'ollama' }
+          : undefined;
+      const response = await api.post('/agents/providers/test', { provider: model.id, providerConfig }, { timeout: 65000 });
+      const connected = { ...config, model: response.data.model || config.model };
+      setConfig(connected);
+      onSave(model.id, connected);
+      setStatus(`Connection verified with a live model response: ${connected.model}.`);
     } catch (error) {
       setStatus(error.response?.data?.message || error.message || 'Connection check failed.');
     } finally { setTesting(false); }
@@ -118,12 +125,10 @@ function ProviderCard({ model, provider, onSave }) {
       <div className="relative mb-3"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} onBlur={() => { if (config.apiKey?.trim() && !getProviderConfigs()[model.id]?.model) discoverAndSave(config); }} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
     </>}
     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model selection <span className="font-normal text-slate-400">(automatic)</span></label>
-    {availableModels.length > 0 ? <select aria-label={`${model.name} model`} value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} className="w-full mb-3 rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm">{availableModels.map((id) => <option key={id} value={id}>{id}</option>)}</select> : <div className="w-full mb-3 rounded-xl border border-slate-200 dark:border-dark-700 bg-slate-100/70 dark:bg-dark-850 px-3 py-2.5 text-sm text-slate-500">{config.model || (isLocal ? 'Set by your local Ollama configuration' : 'We will find a model after you save the API key')}</div>}
-    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API endpoint</label>
-    <input value={config.baseURL} onChange={(e) => setConfig({ ...config, baseURL: e.target.value })} placeholder={PROVIDER_URLS[model.id]} className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 text-sm" />
+    <div className="w-full mb-3 rounded-xl border border-slate-200 dark:border-dark-700 bg-slate-100/70 dark:bg-dark-850 px-3 py-2.5 text-sm text-slate-500">{config.model ? `Automatically selected: ${config.model}` : (isLocal ? 'Set by your local Ollama configuration' : 'A working model is selected automatically after a live test')}</div>
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Save className="w-3.5 h-3.5" />Save</button>
-      <button type="button" onClick={test} disabled={testing || !ready} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
+      <button type="button" onClick={test} disabled={testing || (!config.apiKey?.trim() && !ready)} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-dark-700 px-3 py-2 text-xs font-semibold disabled:opacity-50"><Wifi className="w-3.5 h-3.5" />{testing ? 'Testing…' : 'Test connection'}</button>
       {hasLocalConfig && <button type="button" onClick={() => { saveProviderConfig(model.id, null); setConfig({ apiKey: '', model: provider?.model || '', baseURL: PROVIDER_URLS[model.id] }); setStatus('Removed browser-saved credentials.'); onSave(model.id, null); }} className="text-xs text-rose-500 px-2 py-2">Remove</button>}
     </div>
     {status && <p role="status" className="text-xs mt-3 text-slate-500 dark:text-slate-400">{status}</p>}
@@ -136,6 +141,9 @@ export default function ApiPluginsPage() {
   const [pluginConfig, setPluginConfig] = useState(readPlugins);
   const [message, setMessage] = useState('');
   const [serverProviders, setServerProviders] = useState({});
+  const [imageKey, setImageKey] = useState(() => getImageProviderConfig()?.apiKey || '');
+  const [showImageKey, setShowImageKey] = useState(false);
+  const [imageStatus, setImageStatus] = useState('');
 
   useEffect(() => {
     api.get('/agents/providers').then((response) => setServerProviders(Object.fromEntries((response.data?.providers || []).map((provider) => [provider.id, provider])))).catch(() => {});
@@ -173,6 +181,14 @@ export default function ApiPluginsPage() {
     <div role="tablist" className="inline-flex rounded-xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-1"><button role="tab" aria-selected={tab === 'api'} onClick={() => setTab('api')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'api' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>API</button><button role="tab" aria-selected={tab === 'plugins'} onClick={() => setTab('plugins')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'plugins' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-semibold' : 'text-slate-500'}`}>Plugins</button></div>
     {tab === 'api' ? <>
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-slate-600 dark:text-slate-300 flex gap-3"><ShieldCheck className="w-5 h-5 text-sky-500 shrink-0" /><span>Keys are saved in this browser and included only when you use that provider. Each provider’s own API billing and limits apply. Ollama runs on your configured local endpoint.</span></div>
+      <article className="rounded-2xl border border-slate-200 dark:border-dark-700 bg-white dark:bg-dark-900 p-4 md:p-5">
+        <div className="mb-4"><h3 className="font-semibold">Pollinations image generation</h3><p className="text-xs text-slate-500 mt-1">Add its key once; KritiAI handles the endpoint and model. The provider may apply free quotas or require available credits.</p><a href="https://enter.pollinations.ai/" target="_blank" rel="noreferrer" className="inline-flex mt-1 text-xs text-sky-600 dark:text-sky-400 hover:underline">Get a Pollinations API key ↗</a></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Pollinations API key</label>
+        <div className="relative mb-3"><input type={showImageKey ? 'text' : 'password'} value={imageKey} onChange={(e) => setImageKey(e.target.value)} placeholder="Paste your Pollinations API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showImageKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowImageKey(!showImageKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showImageKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+        <button type="button" onClick={() => { if (!imageKey.trim()) { localStorage.removeItem('kritiai_image_provider'); setImageStatus('Image API key removed.'); return; } localStorage.setItem('kritiai_image_provider', JSON.stringify({ provider: 'pollinations', apiKey: imageKey.trim() })); setImageStatus('Image API key saved on this device.'); }} className="inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold text-white"><Save className="w-3.5 h-3.5" />Save image key</button>
+        {imageStatus && <p role="status" className="text-xs mt-3 text-slate-500">{imageStatus}</p>}
+        <p className="text-xs text-slate-500 mt-3">Generation requires Pollinations API access and available service quota or credits; the provider may apply limits.</p>
+      </article>
       <div className="grid gap-4">{MODEL_LIST.map((model) => <ProviderCard key={model.id} model={model} provider={serverProviders[model.id]} onSave={saveProvider} />)}</div>
     </> : <>
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">Connections are stored on this device. Google API access tokens must include Gmail send and/or Calendar event scopes. WhatsApp requires a Meta Cloud API access token and phone number ID. Chat will ask before sending or creating anything.</div>

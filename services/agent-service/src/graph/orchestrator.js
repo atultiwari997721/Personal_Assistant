@@ -58,7 +58,7 @@ const pptNode = async (state) => {
 };
 
 const imageNode = async (state) => {
-  const result = await runImageAgent(state.userPrompt);
+  const result = await runImageAgent(state.userPrompt, state.imageProviderConfig);
   return { result };
 };
 
@@ -93,6 +93,7 @@ export const buildOrchestratorGraph = () => {
       agentMode: { value: (x, y) => y ?? x, default: () => 'chat' },
       model: { value: (x, y) => y ?? x, default: () => 'auto' },
       providerConfig: { value: (x, y) => y ?? x, default: () => null },
+      imageProviderConfig: { value: (x, y) => y ?? x, default: () => null },
       connectedPlugins: { value: (x, y) => y ?? x, default: () => [] },
       messages: { value: (x, y) => y ?? x, default: () => [] },
       result: { value: (x, y) => y ?? x, default: () => null },
@@ -127,13 +128,14 @@ export const buildOrchestratorGraph = () => {
 };
 
 // Execution helper
-export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto', providerConfig, connectedPlugins = [] }) => {
+export const executeAgentGraph = async ({ userPrompt, agentMode, messages, model = 'auto', providerConfig, imageProviderConfig, connectedPlugins = [] }) => {
   const graph = buildOrchestratorGraph();
   const finalState = await graph.invoke({
     userPrompt,
     agentMode,
     model,
     providerConfig,
+    imageProviderConfig,
     connectedPlugins,
     messages: messages || [],
   });

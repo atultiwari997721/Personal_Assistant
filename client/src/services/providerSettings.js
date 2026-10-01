@@ -20,3 +20,8 @@ export const saveProviderConfig = (provider, config) => {
   else delete configs[provider];
   localStorage.setItem('kritiai_provider_configs', JSON.stringify(configs));
 };
+
+export const getImageProviderConfig = () => {
+  try { return JSON.parse(localStorage.getItem('kritiai_image_provider') || 'null'); }
+  catch { return null; }
+};

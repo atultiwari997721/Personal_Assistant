@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, RotateCcw, Copy, Check, Code, Eye, Sparkles, ExternalLink, RefreshCw } from 'lucide-react';
+import ProjectWorkspace from './ProjectWorkspace.jsx';
 
 const DEFAULT_FULL_WEBSITE = `<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
@@ -393,7 +394,7 @@ const DEFAULT_FULL_WEBSITE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-export const CodeSandboxView = ({ artifactCode, onRunAgentPrompt, isLoading }) => {
+export const CodeSandboxView = ({ artifactCode, onRunAgentPrompt, isLoading, selectedModel = 'auto' }) => {
   const [code, setCode] = useState(artifactCode || DEFAULT_FULL_WEBSITE);
   const [previewSrc, setPreviewSrc] = useState(artifactCode || DEFAULT_FULL_WEBSITE);
   const [copied, setCopied] = useState(false);
@@ -479,6 +480,8 @@ export const CodeSandboxView = ({ artifactCode, onRunAgentPrompt, isLoading }) =
           </button>
         </div>
       </div>
+
+      <ProjectWorkspace code={code} onRunAgentPrompt={onRunAgentPrompt} selectedModel={selectedModel} />
 
       {/* Split-Screen Workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-dark-800 overflow-hidden">

@@ -65,7 +65,15 @@ app.post(
   async (req, res) => {
     try {
       const uid = req.user?.uid;
-      const { prompt, agentMode, messages, model = 'auto', providerConfig, connectedPlugins = [] } = req.body;
+      const {
+        prompt,
+        agentMode,
+        messages,
+        model = 'auto',
+        providerConfig,
+        imageProviderConfig,
+        connectedPlugins = [],
+      } = req.body;
 
       // Forward task execution to Agent Service
       const agentRes = await axios.post(`${AGENT_SERVICE_URL}/api/agents/execute`, {
@@ -74,6 +82,7 @@ app.post(
         messages,
         model,
         providerConfig,
+        imageProviderConfig,
         connectedPlugins,
       });
 

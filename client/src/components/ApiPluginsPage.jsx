@@ -29,9 +29,26 @@ const MODEL_LIST = AVAILABLE_MODELS.filter((model) => model.id !== 'auto');
 
 const detectKeyProvider = (providerId, apiKey) => {
   const value = apiKey?.trim() || '';
-  if (providerId === 'groq' && /^xai-/i.test(value)) return 'xai';
-  if (providerId === 'xai' && /^gsk_/i.test(value)) return 'groq';
-  return providerId;
+  const keyFormats = [
+    ['groq', /^gsk_/i],
+    ['xai', /^xai-/i],
+    ['gemini', /^AIza/i],
+    ['nvidia', /^nvapi-/i],
+    ['huggingface', /^hf_/i],
+    ['openrouter', /^sk-or-v1-/i],
+    ['openai', /^sk-(?!or-v1-)/i],
+  ];
+  return keyFormats.find(([, pattern]) => pattern.test(value))?.[0] || providerId;
+};
+
+const KEY_FORMAT_HINTS = {
+  openai: 'OpenAI keys commonly start with sk-.',
+  xai: 'xAI keys commonly start with xai-.',
+  gemini: 'Google AI Studio keys commonly start with AIza.',
+  nvidia: 'NVIDIA NIM keys commonly start with nvapi-.',
+  groq: 'Groq keys commonly start with gsk_.',
+  huggingface: 'Hugging Face tokens commonly start with hf_.',
+  openrouter: 'OpenRouter keys commonly start with sk-or-v1-.',
 };
 
 const readPlugins = () => {
@@ -86,7 +103,7 @@ function ProviderCard({ model, provider, onSave }) {
       const code = error.response?.data?.code;
       setStatus(code === 'AI_PROVIDER_AUTH_FAILED'
         ? `${targetName} rejected this API key (HTTP 401). Make sure it is an active ${targetName} API key. If it is correct, create a fresh key in the provider console and replace this one.`
-        : error.response?.data?.message || error.message || 'Could not validate the API key.'));
+        : error.response?.data?.message || error.message || 'Could not validate the API key.');
         return false;
       } finally { if (!quiet) setTesting(false); discoveryPromise.current = null; }
     })();
@@ -147,7 +164,8 @@ function ProviderCard({ model, provider, onSave }) {
     </div>
       {!isLocal && <>
       <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">API key</label>
-      <div className="relative mb-3"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} onBlur={() => { if (config.apiKey?.trim() && !getProviderConfigs()[model.id]?.model) discoverAndSave(config); }} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+      <div className="relative mb-1"><input type={showKey ? 'text' : 'password'} value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} onBlur={() => { if (config.apiKey?.trim() && !getProviderConfigs()[model.id]?.model) discoverAndSave(config); }} placeholder="Paste this provider's API key" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 dark:border-dark-700 bg-slate-50 dark:bg-dark-850 px-3 py-2.5 pr-11 text-sm" /><button type="button" aria-label={showKey ? 'Hide API key' : 'Show API key'} onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
+      <p className="mb-3 text-[11px] text-slate-500">{KEY_FORMAT_HINTS[model.id]} Keys are sent only to the selected provider.</p>
     </>}
     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Model selection <span className="font-normal text-slate-400">(automatic)</span></label>
     <div className="w-full mb-3 rounded-xl border border-slate-200 dark:border-dark-700 bg-slate-100/70 dark:bg-dark-850 px-3 py-2.5 text-sm text-slate-500">{config.model ? `Automatically selected: ${config.model}` : (isLocal ? 'Set by your local Ollama configuration' : 'A working model is selected automatically after a live test')}</div>

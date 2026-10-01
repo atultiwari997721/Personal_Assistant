@@ -108,6 +108,13 @@ export const ModelSelector = () => {
             const isSelected = selectedModel === model.id;
             const provider = providerStates[model.id];
             const disabled = model.id !== 'auto' && !provider?.configured;
+            const unavailableReason = provider?.status === 'server_unreachable'
+              ? 'Ollama is not running at its configured local address.'
+              : provider?.status === 'model_unavailable'
+                ? `The configured local model (${provider.model || 'unknown'}) is not installed in Ollama.`
+                : provider?.status === 'no_models_installed'
+                  ? 'Ollama is running, but no local models are installed.'
+                  : null;
             return (
               <button
                 key={model.id}
@@ -133,7 +140,7 @@ export const ModelSelector = () => {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 font-normal">
-                    {model.id === 'auto' ? model.desc : provider?.configured ? model.desc : `${model.desc} Provider is not ready.`}
+                    {model.id === 'auto' ? model.desc : provider?.configured ? model.desc : unavailableReason || `${model.desc} Provider is not ready.`}
                   </p>
                 </div>
                 {isSelected && <Check className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />}

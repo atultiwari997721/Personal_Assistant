@@ -113,6 +113,7 @@ export const App = () => {
       dispatch(
         appendSessionMessage({ sessionId, message: { role: 'assistant', agent: data.agent || activeAgent, content: data.content, data } })
       );
+      return data;
 
     } catch (err) {
       console.error('Agent execution error:', err);
@@ -154,6 +155,7 @@ export const App = () => {
             artifactCode={activeArtifact?.type === 'code' ? activeArtifact.code : null}
             onRunAgentPrompt={handleExecuteAgent}
             isLoading={isLoading}
+            selectedModel={selectedModel}
           />
         );
       case 'ppt':

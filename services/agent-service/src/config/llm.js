@@ -165,7 +165,11 @@ export const getActiveProvider = (requestedModel = 'auto', providerConfig) => {
     const ordered = preferred
       ? [...configurations.filter((provider) => provider.id === preferred), ...configurations.filter((provider) => provider.id !== preferred)]
       : configurations;
-    return ordered.find((provider) => provider.configured) || null;
+    // A configured Ollama model name does not prove that the local server is
+    // running. Only use it automatically when the operator explicitly chose
+    // Ollama; otherwise it can shadow a working user-supplied provider and
+    // turn every request into a connection-refused error.
+    return ordered.find((provider) => provider.configured && (!provider.local || preferred === provider.id)) || null;
   }
 
   const definition = PROVIDER_DEFINITIONS.find((provider) => provider.id === selectedProvider);
@@ -206,7 +210,7 @@ const toProviderError = (error, provider) => {
   const status = error?.status || error?.response?.status;
   const mapped = new Error(
     status === 401 || status === 403
-      ? `${provider.name} authentication failed. Check its API key.`
+      ? `${provider.name} rejected this API key (HTTP ${status}). Confirm the key belongs to ${provider.name}, is active, and was copied without extra characters.`
       : status === 429
         ? `${provider.name} quota or rate limit was reached.`
         : status
